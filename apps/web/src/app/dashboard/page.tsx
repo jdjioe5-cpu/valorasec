@@ -8,7 +8,6 @@ import {
   ArrowRight,
   TrendingUp,
   FileText,
-  Loader2,
   ChevronRight,
   AlertTriangle,
   Scan,
@@ -24,6 +23,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
+import {
+  StatCard,
+  SecurityScoreRing,
+  DashboardSkeleton,
+  DashboardEmptyState,
+} from '@/components/dashboard';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
@@ -39,105 +44,6 @@ interface ActivityItem {
   description: string;
   timestamp: string;
   status?: string;
-}
-
-// ─── Stat Card ────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  sublabel,
-  trend,
-  color = 'primary',
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: string | number;
-  sublabel?: string;
-  trend?: { direction: 'up' | 'down'; value: string };
-  color?: string;
-}) {
-  return (
-    <div className="cyber-card group relative overflow-hidden p-6 transition-all duration-300 hover:shadow-[0_0_40px_rgba(34,197,94,0.08)]">
-      {/* Hover accent bar */}
-      <div className="bg-primary/20 absolute -inset-x-4 -top-px h-px scale-x-0 transition-transform duration-500 group-hover:scale-x-100" />
-
-      <div className="relative">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
-            <Icon className={`text-${color} h-4 w-4`} />
-          </div>
-          {trend && (
-            <span
-              className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-medium ${
-                trend.direction === 'up'
-                  ? 'bg-green-500/10 text-green-400'
-                  : 'bg-red-500/10 text-red-400'
-              }`}
-            >
-              {trend.direction === 'up' ? '↑' : '↓'} {trend.value}
-            </span>
-          )}
-        </div>
-        <div className="font-heading text-3xl font-bold tracking-tight">{value}</div>
-        <div className="text-muted-foreground mt-0.5 text-sm">{label}</div>
-        {sublabel && <div className="text-muted-foreground mt-1 text-xs">{sublabel}</div>}
-      </div>
-    </div>
-  );
-}
-
-// ─── Security Score Ring ──────────────────────────────────────────────────
-
-function SecurityScoreRing({ score }: { score: number }) {
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-
-  const color =
-    score >= 70 ? 'stroke-green-400' : score >= 40 ? 'stroke-yellow-400' : 'stroke-red-400';
-
-  return (
-    <div className="flex flex-col items-center">
-      <div className="relative">
-        <svg width="130" height="130" className="-rotate-90 transform">
-          <circle
-            cx="65"
-            cy="65"
-            r={radius}
-            fill="none"
-            stroke="hsl(var(--muted))"
-            strokeWidth="8"
-          />
-          <circle
-            cx="65"
-            cy="65"
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="8"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className={`${color} transition-all duration-1000 ease-out`}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-heading text-3xl font-bold">{score}</span>
-          <span className="text-muted-foreground text-xs">/100</span>
-        </div>
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <div
-          className={`h-2 w-2 rounded-full ${score >= 70 ? 'bg-green-400' : score >= 40 ? 'bg-yellow-400' : 'bg-red-400'}`}
-        />
-        <span className="text-muted-foreground text-xs font-medium">
-          {score >= 70 ? 'Good' : score >= 40 ? 'Fair' : 'Poor'}
-        </span>
-      </div>
-    </div>
-  );
 }
 
 // ─── Severity Bar ─────────────────────────────────────────────────────────
@@ -353,10 +259,7 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32" role="status" aria-label="Loading dashboard">
-            <Loader2 className="text-primary h-8 w-8 animate-spin" aria-hidden="true" />
-            <span className="sr-only">Loading dashboard data...</span>
-          </div>
+          <DashboardSkeleton />
         ) : (
           <>
             {/* Stats Row */}
@@ -480,15 +383,7 @@ export default function DashboardPage() {
                   </Link>
                 </div>
                 {projects.length === 0 ? (
-                  <div className="cyber-card p-8 text-center">
-                    <AlertTriangle className="text-muted-foreground mx-auto mb-3 h-8 w-8" />
-                    <p className="text-muted-foreground mb-4 text-sm">No projects yet</p>
-                    <Link href="/projects/new">
-                      <Button variant="cyber" size="sm">
-                        <Plus className="mr-2 h-4 w-4" /> Create your first project
-                      </Button>
-                    </Link>
-                  </div>
+                  <DashboardEmptyState />
                 ) : (
                   <div className="space-y-2">
                     {projects.map((project) => {
