@@ -8,7 +8,6 @@ import {
   ArrowRight,
   TrendingUp,
   FileText,
-  Loader2,
   ChevronRight,
   AlertTriangle,
   Scan,
@@ -24,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
+import { DashboardSkeleton } from '@/components/skeletons/dashboard-skeleton';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
@@ -353,10 +353,7 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32" role="status" aria-label="Loading dashboard">
-            <Loader2 className="text-primary h-8 w-8 animate-spin" aria-hidden="true" />
-            <span className="sr-only">Loading dashboard data...</span>
-          </div>
+          <DashboardSkeleton />
         ) : (
           <>
             {/* Stats Row */}

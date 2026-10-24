@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Shield, FileText, Loader2, Play, Activity } from 'luci
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
+import { ProjectDetailSkeleton } from '@/components/skeletons/project-detail-skeleton';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
 import { formatDate, getSeverityClass, truncateAddress } from '@/lib/utils';
@@ -82,9 +83,9 @@ export default function ProjectDetailPage() {
     return (
       <div className="bg-background min-h-screen">
         <Navbar />
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="text-primary h-8 w-8 animate-spin" />
-        </div>
+        <main className="mx-auto max-w-7xl px-6 py-8">
+          <ProjectDetailSkeleton />
+        </main>
       </div>
     );
   }

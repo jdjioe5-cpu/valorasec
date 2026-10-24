@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
+import { ReportDetailSkeleton } from '@/components/skeletons/report-detail-skeleton';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -47,9 +48,9 @@ export default function ReportDetailPage() {
     return (
       <div className="bg-background min-h-screen">
         <Navbar />
-        <div className="flex items-center justify-center py-32">
-          <Loader2 className="text-primary h-8 w-8 animate-spin" />
-        </div>
+        <main className="mx-auto max-w-7xl px-6 py-8">
+          <ReportDetailSkeleton />
+        </main>
       </div>
     );
   }

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { FileText, ArrowRight, Loader2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { FileText, ArrowRight, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
+import { ReportsSkeleton } from '@/components/skeletons/reports-skeleton';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -37,10 +38,7 @@ export default function ReportsPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32" role="status" aria-label="Loading reports">
-            <Loader2 className="text-primary h-8 w-8 animate-spin" aria-hidden="true" />
-            <span className="sr-only">Loading reports...</span>
-          </div>
+          <ReportsSkeleton />
         ) : reports.length === 0 ? (
           <div className="cyber-card p-12 text-center">
             <AlertTriangle className="text-muted-foreground mx-auto mb-4 h-10 w-10" />

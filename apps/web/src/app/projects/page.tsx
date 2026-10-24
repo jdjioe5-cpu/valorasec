@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search, ArrowRight, Loader2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
+import { ProjectsSkeleton } from '@/components/skeletons/projects-skeleton';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
 import type { Project } from '@valorasec/shared';
@@ -51,7 +52,9 @@ export default function ProjectsPage() {
         <div className="mb-6">
           <div className="relative max-w-md">
             <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-            <label htmlFor="search-projects" className="sr-only">Search projects</label>
+            <label htmlFor="search-projects" className="sr-only">
+              Search projects
+            </label>
             <input
               id="search-projects"
               type="text"
@@ -64,10 +67,7 @@ export default function ProjectsPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32" role="status" aria-label="Loading projects">
-            <Loader2 className="text-primary h-8 w-8 animate-spin" aria-hidden="true" />
-            <span className="sr-only">Loading projects...</span>
-          </div>
+          <ProjectsSkeleton />
         ) : filtered.length === 0 ? (
           <div className="cyber-card p-12 text-center">
             <AlertTriangle className="text-muted-foreground mx-auto mb-4 h-10 w-10" />
