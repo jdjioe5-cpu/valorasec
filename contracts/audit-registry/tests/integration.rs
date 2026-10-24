@@ -8,10 +8,8 @@
 #![cfg(test)]
 
 use audit_registry::{AuditRegistry, AuditRegistryClient};
-use soroban_sdk::testutils::Address as _;
+use soroban_sdk::testutils::{Address as _, Ledger as _};
 use soroban_sdk::{Address, BytesN, Env, String};
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Vec};
-extern crate reputation;
 
 /// Minimal duplicate-reputation interface — we re-implement the bits we need
 /// here so this test stays self-contained and runs without depending on the
@@ -22,6 +20,7 @@ extern crate reputation;
 #[test]
 fn test_audit_then_reputation_award() {
     let env = Env::default();
+    env.mock_all_auths();
     let audit_id = env.register(AuditRegistry, ());
     let audit_client = AuditRegistryClient::new(&env, &audit_id);
 
@@ -30,9 +29,7 @@ fn test_audit_then_reputation_award() {
     let report_hash = BytesN::from_array(&env, &[1u8; 32]);
 
     // Register an audit
-    let audit = audit_client
-        .register_audit(&project_id, &report_hash, &auditor)
-        .unwrap();
+    let audit = audit_client.register_audit(&project_id, &report_hash, &auditor);
     assert!(audit_client.verify_audit(&audit, &report_hash));
 
     // After verifying, the upstream flow awards reputation points. We
@@ -50,6 +47,7 @@ fn test_audit_then_reputation_award() {
 #[test]
 fn test_multiple_auditors_same_project() {
     let env = Env::default();
+    env.mock_all_auths();
     let cid = env.register(AuditRegistry, ());
     let client = AuditRegistryClient::new(&env, &cid);
 
@@ -61,8 +59,8 @@ fn test_multiple_auditors_same_project() {
     let hash_b = BytesN::from_array(&env, &[3u8; 32]);
 
     // Two distinct auditors register separate audits on the same project
-    let id_a = client.register_audit(&project, &hash_a, &auditor_a).unwrap();
-    let id_b = client.register_audit(&project, &hash_b, &auditor_b).unwrap();
+    let id_a = client.register_audit(&project, &hash_a, &auditor_a);
+    let id_b = client.register_audit(&project, &hash_b, &auditor_b);
 
     assert_ne!(id_a, id_b);
 
@@ -80,6 +78,7 @@ fn test_multiple_auditors_same_project() {
 #[test]
 fn test_audit_persists_across_ledger_advance() {
     let env = Env::default();
+    env.mock_all_auths();
     let cid = env.register(AuditRegistry, ());
     let client = AuditRegistryClient::new(&env, &cid);
 
@@ -87,12 +86,13 @@ fn test_audit_persists_across_ledger_advance() {
     let project = String::from_str(&env, "proj-ledger-advance");
     let hash = BytesN::from_array(&env, &[7u8; 32]);
 
-    let id = client.register_audit(&project, &hash, &auditor).unwrap();
+    let id = client.register_audit(&project, &hash, &auditor);
 
     // Advance the ledger timestamp substantially. Verify the audit record
     // (which includes a timestamp at registration) is still readable
     // unchanged.
-    env.ledger().set_timestamp(env.ledger().timestamp() + 86_400);
+    env.ledger()
+        .set_timestamp(env.ledger().timestamp() + 86_400);
     let post = client.get_audit(&id).unwrap();
     assert_eq!(post.auditor, auditor);
 
