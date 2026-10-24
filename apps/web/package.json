@@ -43,7 +43,8 @@
     "tailwind-merge": "^2.5.0",
     "tailwindcss-animate": "^1.0.0",
     "zod": "^3.23.0",
-    "zustand": "^5.0.0"
+    "zustand": "^5.0.0",
+    "@valorasec/react": "workspace:*"
   },
   "devDependencies": {
     "@types/jest-axe": "^3.5.9",
