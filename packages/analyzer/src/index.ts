@@ -1,6 +1,85 @@
 import type { AnalyzerRule, Finding, ScanResult, ScanSummary, Severity } from '@valorasec/shared';
+export * from './fixtures';
 
-// ─── Mock Rules ──────────────────────────────────────────────────────────
+// ─── Soroban-Specific Rules (Issue #40) ────────────────────────────────────
+
+export const SOROBAN_SPECIFIC_RULES: AnalyzerRule[] = [
+  {
+    id: 'R009',
+    name: 'cross-contract-reentrancy',
+    category: 'authorization',
+    severity: 'critical',
+    description:
+      'Invocation of external contract calls before mutating internal state creates a window for cross-contract reentrancy attacks.',
+    recommendation:
+      'Apply the Checks-Effects-Interactions pattern: update persistent storage state before invoking external contract calls.',
+    references: [
+      'https://swcregistry.io/docs/SWC-107',
+      'https://cwe.mitre.org/data/definitions/841.html',
+      'https://soroban.stellar.org/docs/fundamentals-and-concepts/invoking-contracts',
+    ],
+  },
+  {
+    id: 'R010',
+    name: 'storage-collision-overlapping-keys',
+    category: 'storage',
+    severity: 'high',
+    description:
+      'Using raw strings or overlapping tuple keys in persistent storage leads to unexpected key collisions and data corruption.',
+    recommendation:
+      'Use strongly typed enum DataKeys with explicit variants for namespaced persistent storage access.',
+    references: [
+      'https://swcregistry.io/docs/SWC-124',
+      'https://cwe.mitre.org/data/definitions/1258.html',
+      'https://soroban.stellar.org/docs/fundamentals-and-concepts/persisting-data',
+    ],
+  },
+  {
+    id: 'R011',
+    name: 'unbounded-host-iteration',
+    category: 'gas-optimization',
+    severity: 'high',
+    description:
+      'Unbounded loops iterating over dynamic on-chain vectors or storage entries can exceed Soroban host CPU and memory metering budgets.',
+    recommendation:
+      'Implement cursor-based pagination with bounded batch sizes and avoid iterating over unconstrained storage collections.',
+    references: [
+      'https://swcregistry.io/docs/SWC-128',
+      'https://cwe.mitre.org/data/definitions/400.html',
+      'https://soroban.stellar.org/docs/fundamentals-and-concepts/fees-and-metering',
+    ],
+  },
+  {
+    id: 'R012',
+    name: 'sep41-token-interface-compliance',
+    category: 'input-validation',
+    severity: 'high',
+    description:
+      'Custom token implementation fails to conform strictly to the SEP-41 Token Interface specification, breaking ecosystem composability.',
+    recommendation:
+      'Implement standard soroban_sdk::token::Interface trait methods (allowance, approve, balance, transfer, burn) with exact signatures.',
+    references: [
+      'https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0041.md',
+      'https://cwe.mitre.org/data/definitions/573.html',
+    ],
+  },
+  {
+    id: 'R013',
+    name: 'missing-overflow-protection',
+    category: 'panic-safety',
+    severity: 'high',
+    description:
+      'Arithmetic calculations performed on primitive integer types without checked, saturating, or overflowing operations may wrap or trigger unexpected panics.',
+    recommendation:
+      'Use checked_add, saturating_sub, checked_mul, or i128 checked math helpers for all balance and score mutations.',
+    references: [
+      'https://swcregistry.io/docs/SWC-101',
+      'https://cwe.mitre.org/data/definitions/190.html',
+    ],
+  },
+];
+
+// ─── All Rules (Core + Soroban Specific) ─────────────────────────────────
 
 const MOCK_RULES: AnalyzerRule[] = [
   {
@@ -86,6 +165,7 @@ const MOCK_RULES: AnalyzerRule[] = [
       'Review authorization logic to ensure all edge cases are handled and authorization cannot be bypassed.',
     references: ['https://soroban.stellar.org/docs/authorization'],
   },
+  ...SOROBAN_SPECIFIC_RULES,
 ];
 
 // ─── Mock Findings Generator ─────────────────────────────────────────────

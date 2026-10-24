@@ -35,9 +35,9 @@ describe('SecurityAnalyzer', () => {
   });
 
   describe('getRules', () => {
-    it('should return all 8 default rules', () => {
+    it('should return all 13 default rules', () => {
       const rules = analyzer.getRules();
-      expect(rules).toHaveLength(8);
+      expect(rules).toHaveLength(13);
     });
 
     it('should return a copy of rules (not the internal array)', () => {
@@ -72,7 +72,7 @@ describe('SecurityAnalyzer', () => {
     it('should add a new rule', () => {
       const newRule = createMockRule({ id: 'CUSTOM-001', name: 'custom-rule' });
       analyzer.addRule(newRule);
-      expect(analyzer.getRules()).toHaveLength(9);
+      expect(analyzer.getRules()).toHaveLength(14);
       expect(analyzer.getRules().find((r) => r.id === 'CUSTOM-001')).toEqual(newRule);
     });
 
@@ -283,9 +283,9 @@ describe('getAnalyzer', () => {
     expect(analyzer).toBeInstanceOf(SecurityAnalyzer);
   });
 
-  it('should have 8 default rules', () => {
+  it('should have 13 default rules', () => {
     const analyzer = getAnalyzer();
-    expect(analyzer.getRules()).toHaveLength(8);
+    expect(analyzer.getRules()).toHaveLength(13);
   });
 });
 
