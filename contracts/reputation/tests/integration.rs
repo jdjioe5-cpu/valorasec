@@ -76,7 +76,12 @@ fn test_multi_user_state_round_trip() {
 fn test_persistent_storage_independent_users_baseline() {
     let mut baseline: HashMap<Address, u32> = HashMap::new();
     for i in 0u32..3u32 {
-        baseline.insert(Address::from_str(&format!("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA{i}").as_str()), i * 10);
+        baseline.insert(
+            Address::from_str(
+                &format!("GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA{i}").as_str(),
+            ),
+            i * 10,
+        );
         // The Address::from_str validation may not accept arbitrary
         // strings; this is a soft fixture — only the count matters for
         // the integration policy assertion.
