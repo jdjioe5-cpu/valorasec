@@ -6,7 +6,7 @@
 
 #![cfg(test)]
 
-use bug_bounty::{BugBounty, BugBountyClient, BountyStatus};
+use bug_bounty::{BountyStatus, BugBounty, BugBountyClient};
 use soroban_sdk::testutils::{Address as _, Token as _};
 use soroban_sdk::{Address, Env, String};
 
@@ -71,7 +71,10 @@ fn test_bounty_full_lifecycle_with_token_transfer() {
     let hunter_balance = token_client.balance(&hunter);
     assert_eq!(hunter_balance, reward, "hunter did not receive full reward");
     let creator_balance = token_client.balance(&creator);
-    assert_eq!(creator_balance, 0, "creator balance should be drained by reward");
+    assert_eq!(
+        creator_balance, 0,
+        "creator balance should be drained by reward"
+    );
 }
 
 #[test]

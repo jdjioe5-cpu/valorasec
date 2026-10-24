@@ -5,7 +5,7 @@ edition = "2021"
 description = "Reputation system for ValoraSec on Soroban/Stellar"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 soroban-sdk = "22"
