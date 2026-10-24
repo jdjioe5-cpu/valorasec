@@ -5,6 +5,7 @@
  * payload which forced callers to parse strings for routing. Issue #50 replaces
  * that surface with a small hierarchy keyed on HTTP status (and an optional
  * `code` field matching the API's `ApiError.code` for programmatic handling).
+ * Issue #47 adds `TimeoutError` and `NetworkError` for transient failure handling.
  *
  * Each error type:
  *   - extends `ValoraSecError` (so callers can `instanceof` the parent and
@@ -19,6 +20,7 @@
  *   } catch (err) {
  *     if (err instanceof AuthError) return redirectToLogin();
  *     if (err instanceof NotFoundError) return render404();
+ *     if (err instanceof TimeoutError) return showTimeoutRetry();
  *     throw err;
  *   }
  *
@@ -32,7 +34,7 @@
  * the specific reason.
  */
 export class ValoraSecError extends Error {
-  /** HTTP status code that triggered the error (0 means network / unknown). */
+  /** HTTP status code that triggered the error (0 means network / unknown / timeout). */
   readonly statusCode: number;
   /** Stable API error code from the server, or empty string if absent. */
   readonly code: string;
@@ -41,7 +43,9 @@ export class ValoraSecError extends Error {
 
   constructor(
     message: string,
-    options: { statusCode: number; code?: string; body?: unknown; cause?: unknown } = { statusCode: 0 },
+    options: { statusCode: number; code?: string; body?: unknown; cause?: unknown } = {
+      statusCode: 0,
+    },
   ) {
     super(message);
     this.name = new.target.name;
@@ -91,8 +95,31 @@ export class ConflictError extends ValoraSecError {
 
 /** 5xx Server Error — server-side fault, transient or persistent. */
 export class ServerError extends ValoraSecError {
+  constructor(
+    message: string,
+    options: { statusCode?: number; code?: string; body?: unknown; cause?: unknown } = {},
+  ) {
+    super(message, { statusCode: options.statusCode ?? 500, ...options });
+  }
+}
+
+/** Request timed out before completing (Issue #47). */
+export class TimeoutError extends ValoraSecError {
+  readonly timeoutMs: number;
+
+  constructor(
+    message = 'Request timed out',
+    options: { timeoutMs?: number; code?: string; body?: unknown; cause?: unknown } = {},
+  ) {
+    super(message, { statusCode: 408, code: options.code ?? 'timeout', ...options });
+    this.timeoutMs = options.timeoutMs ?? 0;
+  }
+}
+
+/** Network connectivity failure or connection error (Issue #47). */
+export class NetworkError extends ValoraSecError {
   constructor(message: string, options: { code?: string; body?: unknown; cause?: unknown } = {}) {
-    super(message, { statusCode: 500, ...options });
+    super(message, { statusCode: 0, code: options.code ?? 'network_error', ...options });
   }
 }
 
@@ -111,11 +138,13 @@ export function errorForStatus(
       return new ForbiddenError(message, options);
     case 404:
       return new NotFoundError(message, options);
+    case 408:
+      return new TimeoutError(message, options);
     case 409:
       return new ConflictError(message, options);
     default:
       if (status >= 500) {
-        return new ServerError(message, options);
+        return new ServerError(message, { statusCode: status, ...options });
       }
       return new ValoraSecError(message, { statusCode: status, ...options });
   }
