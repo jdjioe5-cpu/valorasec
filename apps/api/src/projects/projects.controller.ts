@@ -15,7 +15,7 @@ import { ProjectsService } from './projects.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { QueryProjectsDto } from './dto/query-projects.dto';
 import type { Request } from 'express';
 
 interface JwtRequest extends Request {
@@ -31,10 +31,7 @@ export class ProjectsController {
 
   @Get()
   @ApiOperation({ summary: 'List all projects for current user' })
-  async findAll(
-    @Req() req: JwtRequest,
-    @Query() query: PaginationDto & { search?: string; network?: string },
-  ) {
+  async findAll(@Req() req: JwtRequest, @Query() query: QueryProjectsDto) {
     return this.projectsService.findAll(req.user.sub, query);
   }
 
@@ -56,6 +53,20 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Update project details' })
   async update(@Req() req: JwtRequest, @Param('id') id: string, @Body() dto: UpdateProjectDto) {
     const project = await this.projectsService.update(req.user.sub, id, dto);
+    return { data: project };
+  }
+
+  @Post(':id/archive')
+  @ApiOperation({ summary: 'Soft-delete (archive) a project' })
+  async archive(@Req() req: JwtRequest, @Param('id') id: string) {
+    const project = await this.projectsService.archive(req.user.sub, id);
+    return { data: project };
+  }
+
+  @Post(':id/restore')
+  @ApiOperation({ summary: 'Restore an archived project within 30-day window' })
+  async restore(@Req() req: JwtRequest, @Param('id') id: string) {
+    const project = await this.projectsService.restore(req.user.sub, id);
     return { data: project };
   }
 

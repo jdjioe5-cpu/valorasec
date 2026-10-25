@@ -72,12 +72,52 @@ describe('Projects (integration)', () => {
       await request(app.getHttpServer()).post('/api/projects').expect(401);
       await request(app.getHttpServer()).patch('/api/projects/1').expect(401);
       await request(app.getHttpServer()).delete('/api/projects/1').expect(401);
+      await request(app.getHttpServer()).post('/api/projects/1/archive').expect(401);
+      await request(app.getHttpServer()).post('/api/projects/1/restore').expect(401);
     });
   });
 
   // ─── GET /api/projects ────────────────────────────────────────────────
 
   describe('GET /api/projects', () => {
+    it('should exclude archived projects by default', async () => {
+      prisma.project.findMany.mockResolvedValue([mockProject()]);
+      prisma.project.count.mockResolvedValue(1);
+
+      await request(app.getHttpServer()).get('/api/projects').set(authHeader()).expect(200);
+
+      expect(prisma.project.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: 'user-1',
+            status: { not: 'archived' },
+          }),
+        }),
+      );
+    });
+
+    it('should include archived projects when includeArchived=true', async () => {
+      prisma.project.findMany.mockResolvedValue([
+        mockProject({ id: 'p1', status: 'active' }),
+        mockProject({ id: 'p2', status: 'archived' }),
+      ]);
+      prisma.project.count.mockResolvedValue(2);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/projects?includeArchived=true')
+        .set(authHeader())
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(2);
+      expect(prisma.project.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            status: { not: 'archived' },
+          }),
+        }),
+      );
+    });
+
     it('should list projects for authenticated user', async () => {
       prisma.project.findMany.mockResolvedValue([
         mockProject({ id: 'p1', name: 'Project 1' }),
@@ -322,6 +362,137 @@ describe('Projects (integration)', () => {
 
       await request(app.getHttpServer())
         .delete('/api/projects/non-existent')
+        .set(authHeader())
+        .expect(404);
+    });
+  });
+
+  // ─── POST /api/projects/:id/archive ────────────────────────────────────
+
+  describe('POST /api/projects/:id/archive', () => {
+    it('should soft-delete (archive) an active project', async () => {
+      const activeProj = mockProject({ id: projectId, status: 'active', archivedAt: null });
+      const archivedProj = mockProject({
+        id: projectId,
+        status: 'archived',
+        archivedAt: new Date(),
+      });
+
+      prisma.project.findFirst.mockResolvedValue(activeProj);
+      prisma.project.update.mockResolvedValue(archivedProj);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/archive`)
+        .set(authHeader())
+        .expect(201);
+
+      expect(res.body.data.status).toBe('archived');
+      expect(prisma.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: projectId },
+          data: expect.objectContaining({
+            status: 'archived',
+            archivedAt: expect.any(Date),
+          }),
+        }),
+      );
+    });
+
+    it('should return 400 when attempting to archive already archived project', async () => {
+      const archivedProj = mockProject({
+        id: projectId,
+        status: 'archived',
+        archivedAt: new Date(),
+      });
+      prisma.project.findFirst.mockResolvedValue(archivedProj);
+
+      await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/archive`)
+        .set(authHeader())
+        .expect(400);
+    });
+
+    it('should return 404 for non-existent project', async () => {
+      prisma.project.findFirst.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .post('/api/projects/non-existent/archive')
+        .set(authHeader())
+        .expect(404);
+    });
+  });
+
+  // ─── POST /api/projects/:id/restore ────────────────────────────────────
+
+  describe('POST /api/projects/:id/restore', () => {
+    it('should restore an archived project within 30 days', async () => {
+      const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+      const archivedProj = mockProject({
+        id: projectId,
+        status: 'archived',
+        archivedAt: fiveDaysAgo,
+      });
+      const restoredProj = mockProject({
+        id: projectId,
+        status: 'active',
+        archivedAt: null,
+      });
+
+      prisma.project.findFirst.mockResolvedValue(archivedProj);
+      prisma.project.update.mockResolvedValue(restoredProj);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/restore`)
+        .set(authHeader())
+        .expect(201);
+
+      expect(res.body.data.status).toBe('active');
+      expect(prisma.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: projectId },
+          data: {
+            status: 'active',
+            archivedAt: null,
+          },
+        }),
+      );
+    });
+
+    it('should reject restore (400) if 30-day recovery window has expired', async () => {
+      const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000);
+      const expiredArchivedProj = mockProject({
+        id: projectId,
+        status: 'archived',
+        archivedAt: fortyDaysAgo,
+      });
+
+      prisma.project.findFirst.mockResolvedValue(expiredArchivedProj);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/restore`)
+        .set(authHeader())
+        .expect(400);
+
+      expect(res.body.message).toContain('Cannot restore: 30-day recovery window has expired');
+    });
+
+    it('should reject restore (400) if project is not archived', async () => {
+      const activeProj = mockProject({ id: projectId, status: 'active', archivedAt: null });
+      prisma.project.findFirst.mockResolvedValue(activeProj);
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/restore`)
+        .set(authHeader())
+        .expect(400);
+
+      expect(res.body.message).toContain('Project is not archived');
+    });
+
+    it('should return 404 for non-existent project', async () => {
+      prisma.project.findFirst.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .post('/api/projects/non-existent/restore')
         .set(authHeader())
         .expect(404);
     });

@@ -58,6 +58,8 @@ export const mockProjectDefaults = {
   name: 'Test Project',
   description: 'A test project',
   network: 'testnet' as const,
+  status: 'active',
+  archivedAt: null,
   createdAt: new Date('2025-01-01'),
   updatedAt: new Date('2025-01-01'),
 };

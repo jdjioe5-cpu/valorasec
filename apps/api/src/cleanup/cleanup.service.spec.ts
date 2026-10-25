@@ -120,6 +120,24 @@ describe('CleanupService', () => {
       expect(result).toBe(0);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
+
+    it('should query projects matching archived status and cutoff date', async () => {
+      configService.get.mockReturnValue(30);
+      prisma.project.findMany.mockResolvedValue([]);
+
+      await service.hardDeleteArchivedProjects();
+
+      expect(prisma.project.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            status: 'archived',
+            OR: expect.arrayContaining([
+              expect.objectContaining({ archivedAt: { lt: expect.any(Date) } }),
+            ]),
+          }),
+        }),
+      );
+    });
   });
 
   // ─── runCleanup ────────────────────────────────────────────────────────
@@ -159,6 +177,30 @@ describe('CleanupService', () => {
       expect(metrics.expiredSessionsDeleted).toBe(0);
       expect(metrics.scansSoftDeleted).toBe(0);
       expect(metrics.archivedProjectsHardDeleted).toBe(0);
+    });
+  });
+
+  // ─── scheduledCleanup ──────────────────────────────────────────────────
+
+  describe('scheduledCleanup', () => {
+    it('should execute runCleanup and log result when scheduled cron triggers', async () => {
+      const runCleanupSpy = jest.spyOn(service, 'runCleanup').mockResolvedValue({
+        expiredSessionsDeleted: 1,
+        scansSoftDeleted: 2,
+        archivedProjectsHardDeleted: 3,
+        timestamp: new Date().toISOString(),
+        duration: 50,
+      });
+
+      await service.scheduledCleanup();
+
+      expect(runCleanupSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('should catch and log error if cleanup fails during scheduled job', async () => {
+      jest.spyOn(service, 'runCleanup').mockRejectedValue(new Error('DB failure'));
+
+      await expect(service.scheduledCleanup()).resolves.toBeUndefined();
     });
   });
 });

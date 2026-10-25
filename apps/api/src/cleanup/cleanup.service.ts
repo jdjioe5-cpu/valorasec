@@ -73,7 +73,10 @@ export class CleanupService {
     const archivedProjects = await this.prisma.project.findMany({
       where: {
         status: 'archived',
-        updatedAt: { lt: cutoffDate },
+        OR: [
+          { archivedAt: { lt: cutoffDate } },
+          { archivedAt: null, updatedAt: { lt: cutoffDate } },
+        ],
       },
       select: { id: true },
     });

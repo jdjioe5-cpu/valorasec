@@ -70,6 +70,7 @@ export interface ScanSummary {
 // ─── Project ─────────────────────────────────────────────────────────────
 
 export type NetworkType = 'testnet' | 'mainnet';
+export type ProjectStatus = 'active' | 'archived';
 
 export interface Project {
   id: string;
@@ -77,6 +78,8 @@ export interface Project {
   name: string;
   description?: string;
   network: NetworkType;
+  status?: ProjectStatus | string;
+  archivedAt?: string | null;
   contracts: Contract[];
   createdAt: string;
   updatedAt: string;

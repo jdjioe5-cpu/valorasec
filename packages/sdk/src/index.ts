@@ -23,10 +23,7 @@ export {
   ValidationError,
   ValoraSecError,
 } from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
-} from './errors';
+import { errorForStatus } from './errors';
 
 export interface SdkConfig {
   baseUrl: string;
@@ -91,7 +88,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -145,12 +142,15 @@ export class ValoraSecClient {
     limit?: number;
     search?: string;
     network?: NetworkType;
+    includeArchived?: boolean;
   }): Promise<PaginatedResponse<Project>> {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
     if (params?.limit) query.set('limit', String(params.limit));
     if (params?.search) query.set('search', params.search);
     if (params?.network) query.set('network', params.network);
+    if (params?.includeArchived !== undefined)
+      query.set('includeArchived', String(params.includeArchived));
 
     const qs = query.toString();
     return this.request(`/api/projects${qs ? `?${qs}` : ''}`);
@@ -178,6 +178,18 @@ export class ValoraSecClient {
     return this.request(`/api/projects/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
+    });
+  }
+
+  async archiveProject(id: string): Promise<ApiSuccess<Project>> {
+    return this.request(`/api/projects/${id}/archive`, {
+      method: 'POST',
+    });
+  }
+
+  async restoreProject(id: string): Promise<ApiSuccess<Project>> {
+    return this.request(`/api/projects/${id}/restore`, {
+      method: 'POST',
     });
   }
 

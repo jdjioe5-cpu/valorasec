@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -7,13 +7,23 @@ export class ProjectsService {
 
   async findAll(
     userId: string,
-    query: { page?: number; limit?: number; search?: string; network?: string },
+    query: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      network?: string;
+      includeArchived?: boolean | string;
+    },
   ) {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = { userId };
+    const includeArchived = query.includeArchived === true || query.includeArchived === 'true';
+    if (!includeArchived) {
+      where.status = { not: 'archived' };
+    }
     if (query.search) {
       where.name = { contains: query.search, mode: 'insensitive' };
     }
@@ -68,6 +78,47 @@ export class ProjectsService {
     return this.prisma.project.update({
       where: { id: projectId },
       data,
+      include: { contracts: true },
+    });
+  }
+
+  async archive(userId: string, projectId: string) {
+    const project = await this.findOne(userId, projectId);
+    if (project.status === 'archived') {
+      throw new BadRequestException('Project is already archived');
+    }
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        status: 'archived',
+        archivedAt: new Date(),
+      },
+      include: { contracts: true },
+    });
+  }
+
+  async restore(userId: string, projectId: string) {
+    const project = await this.findOne(userId, projectId);
+    if (project.status !== 'archived') {
+      throw new BadRequestException('Project is not archived');
+    }
+
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const archivedTime = project.archivedAt
+      ? new Date(project.archivedAt).getTime()
+      : new Date(project.updatedAt).getTime();
+    const now = Date.now();
+
+    if (now - archivedTime > THIRTY_DAYS_MS) {
+      throw new BadRequestException('Cannot restore: 30-day recovery window has expired');
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        status: 'active',
+        archivedAt: null,
+      },
       include: { contracts: true },
     });
   }
