@@ -4,6 +4,29 @@
 
 @layer base {
   :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 20% 94%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 142 76% 36%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
     --background: 220 13% 8%;
     --foreground: 210 40% 98%;
     --card: 220 13% 10%;
@@ -23,7 +46,6 @@
     --border: 217 19% 18%;
     --input: 217 19% 14%;
     --ring: 142 76% 36%;
-    --radius: 0.5rem;
   }
 
   * {
@@ -31,7 +53,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased transition-colors duration-200;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
@@ -40,7 +62,7 @@
 
 @layer components {
   .cyber-card {
-    @apply bg-card/80 border-border/50 rounded-lg border backdrop-blur-sm;
+    @apply bg-card/90 dark:bg-card/80 border-border/70 dark:border-border/50 rounded-lg border shadow-sm backdrop-blur-sm transition-colors dark:shadow-none;
   }
 
   .cyber-card-hover {
@@ -56,23 +78,23 @@
   }
 
   .severity-critical {
-    @apply border-red-500/30 bg-red-500/10 text-red-400;
+    @apply border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400;
   }
 
   .severity-high {
-    @apply border-orange-500/30 bg-orange-500/10 text-orange-400;
+    @apply border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400;
   }
 
   .severity-medium {
-    @apply border-yellow-500/30 bg-yellow-500/10 text-yellow-400;
+    @apply border-yellow-500/30 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400;
   }
 
   .severity-low {
-    @apply border-blue-500/30 bg-blue-500/10 text-blue-400;
+    @apply border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400;
   }
 
   .severity-info {
-    @apply border-gray-500/30 bg-gray-500/10 text-gray-400;
+    @apply border-gray-500/30 bg-gray-500/10 text-gray-600 dark:text-gray-400;
   }
 }
 

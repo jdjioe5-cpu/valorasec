@@ -1,11 +1,12 @@
 'use client';
 
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Shield, Menu, X, Bell, User, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { useAuthStore } from '@/lib/store/auth-store';
-import { useState } from 'react';
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard' },
@@ -31,7 +32,11 @@ export function Navbar() {
     <header className="border-border/50 bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 w-full border-b backdrop-blur">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-8">
-          <Link href="/dashboard" className="flex items-center gap-2" aria-label="ValoraSec Dashboard">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2"
+            aria-label="ValoraSec Dashboard"
+          >
             <Shield className="text-primary h-6 w-6" aria-hidden="true" />
             <span className="font-heading text-lg font-bold tracking-tight">
               Valora<span className="text-primary">Sec</span>
@@ -57,11 +62,19 @@ export function Navbar() {
         </div>
 
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
             <Bell className="h-5 w-5" aria-hidden="true" />
-            <span className="bg-primary absolute right-1.5 top-1.5 h-2 w-2 rounded-full" aria-hidden="true" />
+            <span
+              className="bg-primary absolute right-1.5 top-1.5 h-2 w-2 rounded-full"
+              aria-hidden="true"
+            />
           </Button>
-          <Button variant="ghost" className="flex items-center gap-2" aria-label={`User menu for ${user?.name ?? 'User'}`}>
+          <Button
+            variant="ghost"
+            className="flex items-center gap-2"
+            aria-label={`User menu for ${user?.name ?? 'User'}`}
+          >
             <User className="h-4 w-4" aria-hidden="true" />
             <span className="text-sm">{user?.name ?? 'User'}</span>
           </Button>
@@ -71,16 +84,22 @@ export function Navbar() {
         </div>
 
         {/* Mobile menu button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={mobileOpen}
-        >
-          {mobileOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
-        </Button>
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? (
+              <X className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile menu */}
@@ -98,7 +117,12 @@ export function Navbar() {
               </Link>
             ))}
             <hr className="border-border/50 my-2" />
-            <Button variant="ghost" onClick={handleLogout} className="justify-start" aria-label="Sign out">
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="justify-start"
+              aria-label="Sign out"
+            >
               <LogOut className="mr-2 h-4 w-4" aria-hidden="true" /> Sign Out
             </Button>
           </nav>
