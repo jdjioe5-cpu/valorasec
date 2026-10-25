@@ -8,6 +8,8 @@ import { useAuthStore } from '@/lib/store/auth-store';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
 
+import { SessionManager } from '@/components/settings/session-manager';
+
 export default function SettingsPage() {
   const { user, setUser } = useAuthStore();
   const { shouldRender } = useAuthGuard();
@@ -140,6 +142,11 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+
+          {/* Active Sessions Section (Issue #18) */}
+          <SessionManager />
+
+          {/* Active Sessions Section (Issue #18) */}
 
           {/* Notifications Section */}
           <div className="cyber-card p-6">

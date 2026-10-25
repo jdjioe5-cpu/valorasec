@@ -44,6 +44,10 @@ export function createMockSession(overrides: Record<string, unknown> = {}) {
     id: 'session-1',
     userId: 'user-1',
     refreshToken: 'refresh-token-123',
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ipAddress: '127.0.0.1',
+    lastUsedAt: new Date(),
     expiresAt: new Date(Date.now() + 604800000),
     createdAt: new Date(),
     ...overrides,

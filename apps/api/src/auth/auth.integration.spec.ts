@@ -326,4 +326,99 @@ describe('Auth (integration)', () => {
         .expect(401);
     });
   });
+
+  // ─── GET /api/auth/sessions (Issue #18) ───────────────────────────────
+
+  describe('GET /api/auth/sessions', () => {
+    it('should return all active sessions for current user', async () => {
+      const token = getAccessToken('user-1');
+      prisma.session.findMany.mockResolvedValue([
+        {
+          id: 'sess-1',
+          userId: 'user-1',
+          refreshToken: 'rt-1',
+          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0',
+          ipAddress: '127.0.0.1',
+          lastUsedAt: new Date(),
+          expiresAt: new Date(Date.now() + 100000),
+          createdAt: new Date(),
+        },
+      ]);
+
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${token}`)
+        .set('x-refresh-token', 'rt-1')
+        .expect(200);
+
+      expect(res.body.data).toBeDefined();
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].id).toBe('sess-1');
+      expect(res.body.data[0].isCurrent).toBe(true);
+      expect(res.body.data[0].browser).toBe('Google Chrome');
+    });
+
+    it('should require authentication', async () => {
+      await request(app.getHttpServer()).get('/api/auth/sessions').expect(401);
+    });
+  });
+
+  // ─── DELETE /api/auth/sessions/:id (Issue #18) ────────────────────────
+
+  describe('DELETE /api/auth/sessions/:id', () => {
+    it('should revoke a session by id', async () => {
+      const token = getAccessToken('user-1');
+      prisma.session.findUnique.mockResolvedValue({
+        id: 'sess-target',
+        userId: 'user-1',
+      });
+      prisma.session.delete.mockResolvedValue({});
+
+      const res = await request(app.getHttpServer())
+        .delete('/api/auth/sessions/sess-target')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+
+      expect(res.body.data.success).toBe(true);
+      expect(prisma.session.delete).toHaveBeenCalledWith({
+        where: { id: 'sess-target' },
+      });
+    });
+
+    it('should return 404 if session not found or belongs to another user', async () => {
+      const token = getAccessToken('user-1');
+      prisma.session.findUnique.mockResolvedValue({
+        id: 'sess-other',
+        userId: 'different-user',
+      });
+
+      await request(app.getHttpServer())
+        .delete('/api/auth/sessions/sess-other')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(404);
+    });
+  });
+
+  // ─── DELETE /api/auth/sessions (Issue #18) ────────────────────────────
+
+  describe('DELETE /api/auth/sessions', () => {
+    it('should revoke all other sessions preserving current', async () => {
+      const token = getAccessToken('user-1');
+      prisma.session.deleteMany.mockResolvedValue({ count: 2 });
+
+      const res = await request(app.getHttpServer())
+        .delete('/api/auth/sessions')
+        .set('Authorization', `Bearer ${token}`)
+        .set('x-refresh-token', 'my-current-token')
+        .expect(200);
+
+      expect(res.body.data.revokedCount).toBe(2);
+      expect(prisma.session.deleteMany).toHaveBeenCalledWith({
+        where: {
+          userId: 'user-1',
+          refreshToken: { not: 'my-current-token' },
+        },
+      });
+    });
+  });
 });

@@ -287,3 +287,24 @@ export interface BugBounty {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Session Management ──────────────────────────────────────────────────
+
+export interface SessionInfo {
+  id: string;
+  userId: string;
+  userAgent?: string | null;
+  ipAddress?: string | null;
+  device?: string;
+  browser?: string;
+  os?: string;
+  lastUsedAt: string;
+  expiresAt: string;
+  createdAt: string;
+  isCurrent?: boolean;
+}
+
+export interface RevokeSessionsResponse {
+  revokedCount: number;
+  message: string;
+}

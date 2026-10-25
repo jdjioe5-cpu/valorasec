@@ -11,6 +11,8 @@ import {
   type Report,
   type ScanResult,
   type User,
+  type SessionInfo,
+  type RevokeSessionsResponse,
 } from '@valorasec/shared';
 
 export {
@@ -23,10 +25,7 @@ export {
   ValidationError,
   ValoraSecError,
 } from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
-} from './errors';
+import { errorForStatus } from './errors';
 
 export interface SdkConfig {
   baseUrl: string;
@@ -91,7 +90,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -254,6 +253,32 @@ export class ValoraSecClient {
   async registerOnChain(reportId: string): Promise<ApiSuccess<Report>> {
     return this.request(`/api/reports/${reportId}/register`, {
       method: 'POST',
+    });
+  }
+
+  // ─── Session Management (Issue #18) ──────────────────────────────────
+
+  async getSessions(currentRefreshToken?: string): Promise<ApiSuccess<SessionInfo[]>> {
+    const qs = currentRefreshToken
+      ? '?currentRefreshToken=' + encodeURIComponent(currentRefreshToken)
+      : '';
+    return this.request('/api/auth/sessions' + qs);
+  }
+
+  async revokeSession(id: string): Promise<ApiSuccess<{ success: boolean; message: string }>> {
+    return this.request('/api/auth/sessions/' + id, {
+      method: 'DELETE',
+    });
+  }
+
+  async revokeOtherSessions(
+    currentRefreshToken?: string,
+  ): Promise<ApiSuccess<RevokeSessionsResponse>> {
+    const qs = currentRefreshToken
+      ? '?currentRefreshToken=' + encodeURIComponent(currentRefreshToken)
+      : '';
+    return this.request('/api/auth/sessions' + qs, {
+      method: 'DELETE',
     });
   }
 }
