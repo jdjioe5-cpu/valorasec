@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getAnalyzer } from '@valorasec/analyzer';
 import type { ScanResult } from '@valorasec/shared';
+import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
 export class ScansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly webhooksService?: WebhooksService,
+  ) {}
 
   async runScan(projectId: string, contractId: string): Promise<ScanResult> {
     // Verify contract exists in project
@@ -39,6 +43,27 @@ export class ScansService {
         duration: result.scan.duration ?? null,
       },
     });
+
+    // Trigger webhook notifications for scan completion
+    if (this.webhooksService) {
+      try {
+        const project = await this.prisma.project.findUnique({
+          where: { id: projectId },
+        });
+        if (project) {
+          this.webhooksService.dispatchScanCompleted(project.userId, {
+            projectId,
+            contractId,
+            scanId: result.scan.id,
+            status: result.scan.status,
+            summary: result.scan.summary,
+            findingsCount: result.scan.findings.length,
+          });
+        }
+      } catch {
+        // Non-blocking notification dispatch
+      }
+    }
 
     return result.scan;
   }

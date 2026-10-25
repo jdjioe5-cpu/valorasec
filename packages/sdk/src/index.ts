@@ -11,7 +11,12 @@ import {
   type Report,
   type ScanResult,
   type User,
+  type Webhook,
+  type WebhookDelivery,
+  type CreateWebhookDto,
 } from '@valorasec/shared';
+
+import { errorForStatus } from './errors';
 
 export {
   AuthError,
@@ -22,10 +27,6 @@ export {
   ServerError,
   ValidationError,
   ValoraSecError,
-} from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
 } from './errors';
 
 export interface SdkConfig {
@@ -91,7 +92,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -255,5 +256,36 @@ export class ValoraSecClient {
     return this.request(`/api/reports/${reportId}/register`, {
       method: 'POST',
     });
+  }
+
+  // ─── Webhooks ───────────────────────────────────────────────────────
+
+  async getWebhooks(): Promise<ApiSuccess<Webhook[]>> {
+    return this.request('/api/webhooks');
+  }
+
+  async createWebhook(data: CreateWebhookDto): Promise<ApiSuccess<Webhook>> {
+    return this.request('/api/webhooks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWebhook(id: string): Promise<ApiSuccess<Webhook>> {
+    return this.request(`/api/webhooks/${id}`);
+  }
+
+  async deleteWebhook(id: string): Promise<void> {
+    await this.request(`/api/webhooks/${id}`, { method: 'DELETE' });
+  }
+
+  async testWebhook(
+    id: string,
+  ): Promise<ApiSuccess<{ status: string; statusCode?: number; attempts: number }>> {
+    return this.request(`/api/webhooks/${id}/test`, { method: 'POST' });
+  }
+
+  async getWebhookDeliveries(id: string): Promise<ApiSuccess<WebhookDelivery[]>> {
+    return this.request(`/api/webhooks/${id}/deliveries`);
   }
 }

@@ -8,6 +8,7 @@ import { ScansModule } from './scans/scans.module';
 import { ReportsModule } from './reports/reports.module';
 import { AuditRegistryModule } from './audit-registry/audit-registry.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { HealthModule } from './health/health.module';
 import { CleanupModule } from './cleanup/cleanup.module';
 
@@ -22,6 +23,7 @@ import { CleanupModule } from './cleanup/cleanup.module';
     ReportsModule,
     AuditRegistryModule,
     NotificationsModule,
+    WebhooksModule,
     HealthModule,
     CleanupModule,
   ],

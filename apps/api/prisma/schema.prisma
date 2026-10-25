@@ -25,6 +25,7 @@ model User {
   reports       Report[]
   notifications Notification[]
   sessions      Session[]
+  webhooks      Webhook[]
 
   @@map("users")
 }
@@ -162,4 +163,42 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
+}
+
+
+// ─── Webhook ──────────────────────────────────────────────────────────────
+
+model Webhook {
+  id          String   @id @default(uuid())
+  userId      String
+  url         String
+  description String?
+  secret      String
+  isActive    Boolean  @default(true)
+  events      Json     @default("[\"scan.completed\"]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+// ─── Webhook Delivery ─────────────────────────────────────────────────────
+
+model WebhookDelivery {
+  id         String   @id @default(uuid())
+  webhookId  String
+  event      String
+  payload    Json
+  status     String
+  statusCode Int?
+  attempts   Int      @default(1)
+  error      String?
+  createdAt  DateTime @default(now())
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
 }

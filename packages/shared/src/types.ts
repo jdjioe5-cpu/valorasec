@@ -287,3 +287,36 @@ export interface BugBounty {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Webhooks ────────────────────────────────────────────────────────────
+
+export interface Webhook {
+  id: string;
+  userId: string;
+  url: string;
+  description?: string;
+  secret: string;
+  isActive: boolean;
+  events: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  event: string;
+  payload: Record<string, unknown>;
+  status: 'success' | 'failed';
+  statusCode?: number;
+  attempts: number;
+  error?: string;
+  createdAt: string;
+}
+
+export interface CreateWebhookDto {
+  url: string;
+  description?: string;
+  secret?: string;
+  events?: string[];
+}

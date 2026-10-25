@@ -24,6 +24,8 @@ export interface PrismaMock {
   report: PrismaModelMock;
   notification: PrismaModelMock;
   auditRecord: PrismaModelMock;
+  webhook: PrismaModelMock;
+  webhookDelivery: PrismaModelMock;
   $connect: jest.Mock;
   $disconnect: jest.Mock;
   $transaction: jest.Mock;
@@ -49,7 +51,7 @@ function createModelMock(): PrismaModelMock {
  * updateMany, delete, deleteMany, count) are jest mocks.
  */
 export function createPrismaMock(): PrismaMock {
-  return {
+  const mock: PrismaMock = {
     user: createModelMock(),
     session: createModelMock(),
     project: createModelMock(),
@@ -58,8 +60,20 @@ export function createPrismaMock(): PrismaMock {
     report: createModelMock(),
     notification: createModelMock(),
     auditRecord: createModelMock(),
+    webhook: createModelMock(),
+    webhookDelivery: createModelMock(),
     $connect: jest.fn(),
     $disconnect: jest.fn(),
-    $transaction: jest.fn(),
+    $transaction: jest.fn().mockImplementation(async (arg: unknown) => {
+      if (typeof arg === 'function') {
+        return (arg as (tx: PrismaMock) => Promise<unknown>)(mock);
+      }
+      if (Array.isArray(arg)) {
+        return Promise.all(arg);
+      }
+      return arg;
+    }),
   };
+
+  return mock;
 }

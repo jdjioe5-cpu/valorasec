@@ -23,5 +23,7 @@ export {
   createMockReport,
   createMockNotification,
   createMockAuditRecord,
+  createMockWebhook,
+  createMockWebhookDelivery,
   type PrismaMock,
 } from '@valorasec/test-utils';

@@ -1,47 +1,17 @@
 /**
  * Typed errors thrown by `@valorasec/sdk` consumers.
- *
- * The SDK previously threw plain `Error` objects with a `[<statusCode>] <message>`
- * payload which forced callers to parse strings for routing. Issue #50 replaces
- * that surface with a small hierarchy keyed on HTTP status (and an optional
- * `code` field matching the API's `ApiError.code` for programmatic handling).
- *
- * Each error type:
- *   - extends `ValoraSecError` (so callers can `instanceof` the parent and
- *     inspect `statusCode` + `code` uniformly)
- *   - carries its semantically meaningful HTTP status code in `statusCode`
- *   - forwards `message`, `code`, and the original response body when present
- *     via `cause` so the JSON body is not lost behind the wrapper
- *
- * Consumers can write:
- *   try {
- *     await client.getProfile();
- *   } catch (err) {
- *     if (err instanceof AuthError) return redirectToLogin();
- *     if (err instanceof NotFoundError) return render404();
- *     throw err;
- *   }
- *
- * `code` matches the API's typed `ApiError.code` field. The exact set of
- * codes is owned by the server; this client treats it as opaque.
  */
 
-/**
- * Base error class for every typed error thrown by the SDK.
- * Catch it when you only care about "the SDK failed" without branching on
- * the specific reason.
- */
 export class ValoraSecError extends Error {
-  /** HTTP status code that triggered the error (0 means network / unknown). */
   readonly statusCode: number;
-  /** Stable API error code from the server, or empty string if absent. */
   readonly code: string;
-  /** Original response body when available, kept for diagnostics. */
   readonly body: unknown;
 
   constructor(
     message: string,
-    options: { statusCode: number; code?: string; body?: unknown; cause?: unknown } = { statusCode: 0 },
+    options: { statusCode: number; code?: string; body?: unknown; cause?: unknown } = {
+      statusCode: 0,
+    },
   ) {
     super(message);
     this.name = new.target.name;
@@ -91,8 +61,11 @@ export class ConflictError extends ValoraSecError {
 
 /** 5xx Server Error — server-side fault, transient or persistent. */
 export class ServerError extends ValoraSecError {
-  constructor(message: string, options: { code?: string; body?: unknown; cause?: unknown } = {}) {
-    super(message, { statusCode: 500, ...options });
+  constructor(
+    message: string,
+    options: { statusCode?: number; code?: string; body?: unknown; cause?: unknown } = {},
+  ) {
+    super(message, { statusCode: options.statusCode ?? 500, ...options });
   }
 }
 
@@ -115,7 +88,7 @@ export function errorForStatus(
       return new ConflictError(message, options);
     default:
       if (status >= 500) {
-        return new ServerError(message, options);
+        return new ServerError(message, { statusCode: status, ...options });
       }
       return new ValoraSecError(message, { statusCode: status, ...options });
   }

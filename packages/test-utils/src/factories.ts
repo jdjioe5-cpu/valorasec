@@ -170,3 +170,37 @@ export function createMockAuditRecord(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+// ─── Webhook ─────────────────────────────────────────────────────────────
+
+export function createMockWebhook(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'webhook-1',
+    userId: 'user-1',
+    url: 'https://example.com/webhook',
+    description: 'Test Webhook',
+    secret: 'whsec_test1234567890abcdef1234567890abcdef',
+    isActive: true,
+    events: ['scan.completed'],
+    createdAt: new Date('2025-01-01'),
+    updatedAt: new Date('2025-01-01'),
+    ...overrides,
+  };
+}
+
+// ─── Webhook Delivery ─────────────────────────────────────────────────────
+
+export function createMockWebhookDelivery(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'delivery-1',
+    webhookId: 'webhook-1',
+    event: 'scan.completed',
+    payload: { status: 'completed' },
+    status: 'success',
+    statusCode: 200,
+    attempts: 1,
+    error: null,
+    createdAt: new Date('2025-01-01'),
+    ...overrides,
+  };
+}
