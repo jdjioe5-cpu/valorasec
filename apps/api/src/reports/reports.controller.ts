@@ -2,7 +2,7 @@ import { Controller, Post, Get, Param, Query, UseGuards, Req } from '@nestjs/com
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { QueryReportsDto } from './dto/query-reports.dto';
 import type { Request } from 'express';
 
 interface JwtRequest extends Request {
@@ -18,7 +18,7 @@ export class ReportsController {
 
   @Get()
   @ApiOperation({ summary: 'List all reports' })
-  async findAll(@Req() req: JwtRequest, @Query() query: PaginationDto & { projectId?: string }) {
+  async findAll(@Req() req: JwtRequest, @Query() query: QueryReportsDto) {
     return this.reportsService.findAll({ ...query, userId: req.user.sub });
   }
 

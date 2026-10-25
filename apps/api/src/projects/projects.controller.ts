@@ -15,7 +15,7 @@ import { ProjectsService } from './projects.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
+import { QueryProjectsDto } from './dto/query-projects.dto';
 import type { Request } from 'express';
 
 interface JwtRequest extends Request {
@@ -31,10 +31,7 @@ export class ProjectsController {
 
   @Get()
   @ApiOperation({ summary: 'List all projects for current user' })
-  async findAll(
-    @Req() req: JwtRequest,
-    @Query() query: PaginationDto & { search?: string; network?: string },
-  ) {
+  async findAll(@Req() req: JwtRequest, @Query() query: QueryProjectsDto) {
     return this.projectsService.findAll(req.user.sub, query);
   }
 

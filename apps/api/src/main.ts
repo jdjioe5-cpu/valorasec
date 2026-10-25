@@ -1,8 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { createValidationPipe } from './common/pipes/validation.pipe';
+import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter';
 
 function validateEnv(config: ConfigService): void {
   // Skip validation in test environment (integration tests mock dependencies)
@@ -48,15 +49,9 @@ async function bootstrap(): Promise<void> {
     credentials: true,
   });
 
-  // Validation
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
+  // Global Filters & Pipes
+  app.useGlobalFilters(new PrismaExceptionFilter());
+  app.useGlobalPipes(createValidationPipe());
 
   // Swagger
   const swaggerConfig = new DocumentBuilder()
