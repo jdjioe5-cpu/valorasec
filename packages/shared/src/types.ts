@@ -237,6 +237,52 @@ export type AnalyzerRuleCategory =
   | 'randomness'
   | 'panic-safety';
 
+// ─── Security Rule Marketplace (Issue #37) ──────────────────────────────────
+
+export interface SecurityRule {
+  id: string;
+  name: string;
+  title?: string;
+  category: string;
+  severity: Severity;
+  description: string;
+  recommendation: string;
+  pattern?: string;
+  author: string;
+  authorId?: string;
+  downloads: number;
+  isCommunity?: boolean;
+  enabled?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateSecurityRuleDto {
+  name: string;
+  title?: string;
+  category: string;
+  severity: Severity;
+  description: string;
+  recommendation: string;
+  pattern?: string;
+}
+
+export interface UpdateSecurityRuleDto {
+  name?: string;
+  title?: string;
+  category?: string;
+  severity?: Severity;
+  description?: string;
+  recommendation?: string;
+  pattern?: string;
+}
+
+export interface SecurityRuleExportData {
+  rules: SecurityRule[];
+  exportedAt: string;
+  version: string;
+}
+
 export interface AnalyzerRule {
   id: string;
   name: string;

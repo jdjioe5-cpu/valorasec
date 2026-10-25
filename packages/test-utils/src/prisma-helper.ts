@@ -24,6 +24,7 @@ export interface PrismaMock {
   report: PrismaModelMock;
   notification: PrismaModelMock;
   auditRecord: PrismaModelMock;
+  securityRule: PrismaModelMock;
   $connect: jest.Mock;
   $disconnect: jest.Mock;
   $transaction: jest.Mock;
@@ -58,6 +59,7 @@ export function createPrismaMock(): PrismaMock {
     report: createModelMock(),
     notification: createModelMock(),
     auditRecord: createModelMock(),
+    securityRule: createModelMock(),
     $connect: jest.fn(),
     $disconnect: jest.fn(),
     $transaction: jest.fn(),

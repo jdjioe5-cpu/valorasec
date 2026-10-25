@@ -170,3 +170,24 @@ export function createMockAuditRecord(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+export function createMockSecurityRule(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'rule-uuid-1',
+    name: 'custom-auth-rule',
+    title: 'Custom Auth Rule',
+    category: 'authorization',
+    severity: 'high',
+    description: 'Verifies authorization requirements',
+    recommendation: 'Check auth explicitly',
+    pattern: 'require_auth\\(',
+    author: 'Tester',
+    authorId: 'user-uuid-1',
+    downloads: 10,
+    isCommunity: true,
+    enabled: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}

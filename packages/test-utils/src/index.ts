@@ -16,6 +16,7 @@ export {
   createMockReport,
   createMockNotification,
   createMockAuditRecord,
+  createMockSecurityRule,
   mockUserDefaults,
   mockProjectDefaults,
   mockScanDefaults,

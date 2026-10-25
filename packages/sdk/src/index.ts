@@ -9,6 +9,10 @@ import {
   type Project,
   type RegisterRequest,
   type Report,
+  type SecurityRule,
+  type CreateSecurityRuleDto,
+  type UpdateSecurityRuleDto,
+  type SecurityRuleExportData,
   type ScanResult,
   type User,
 } from '@valorasec/shared';
@@ -23,10 +27,7 @@ export {
   ValidationError,
   ValoraSecError,
 } from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
-} from './errors';
+import { errorForStatus } from './errors';
 
 export interface SdkConfig {
   baseUrl: string;
@@ -91,7 +92,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -254,6 +255,78 @@ export class ValoraSecClient {
   async registerOnChain(reportId: string): Promise<ApiSuccess<Report>> {
     return this.request(`/api/reports/${reportId}/register`, {
       method: 'POST',
+    });
+  }
+
+  // ─── Security Rule Marketplace (Issue #37) ──────────────────────────
+
+  async getRules(params?: {
+    category?: string;
+    severity?: string;
+    search?: string;
+    sort?: 'popular' | 'recent' | 'name';
+    page?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<SecurityRule>> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.category) query.set('category', params.category);
+    if (params?.severity) query.set('severity', params.severity);
+    if (params?.search) query.set('search', params.search);
+    if (params?.sort) query.set('sort', params.sort);
+
+    const qs = query.toString();
+    return this.request(`/api/rules${qs ? `?${qs}` : ''}`);
+  }
+
+  async getRule(id: string): Promise<ApiSuccess<SecurityRule>> {
+    return this.request(`/api/rules/${id}`);
+  }
+
+  async createRule(dto: CreateSecurityRuleDto): Promise<ApiSuccess<SecurityRule>> {
+    return this.request('/api/rules', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async updateRule(id: string, dto: UpdateSecurityRuleDto): Promise<ApiSuccess<SecurityRule>> {
+    return this.request(`/api/rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+  }
+
+  async deleteRule(id: string): Promise<ApiSuccess<{ message: string }>> {
+    return this.request(`/api/rules/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async toggleRule(id: string): Promise<ApiSuccess<SecurityRule>> {
+    return this.request(`/api/rules/${id}/toggle`, {
+      method: 'POST',
+    });
+  }
+
+  async installRule(id: string): Promise<ApiSuccess<SecurityRule>> {
+    return this.request(`/api/rules/${id}/install`, {
+      method: 'POST',
+    });
+  }
+
+  async exportRules(category?: string): Promise<ApiSuccess<SecurityRuleExportData>> {
+    const qs = category ? `?category=${category}` : '';
+    return this.request(`/api/rules/export${qs}`);
+  }
+
+  async importRules(
+    rules: CreateSecurityRuleDto[],
+  ): Promise<ApiSuccess<{ importedCount: number; rules: SecurityRule[] }>> {
+    return this.request('/api/rules/import', {
+      method: 'POST',
+      body: JSON.stringify({ rules }),
     });
   }
 }
