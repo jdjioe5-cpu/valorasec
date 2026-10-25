@@ -1,15 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Shield, FileText, Loader2, Play, Activity } from 'lucide-react';
+import { ArrowLeft, Plus, Shield, Loader2, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
 import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
-import { formatDate, getSeverityClass, truncateAddress } from '@/lib/utils';
+import { formatDate, truncateAddress } from '@/lib/utils';
+import { useScanProgress } from '@/lib/hooks/use-scan-progress';
+import { useScanStore } from '@/lib/store/scan-store';
+import { ScanProgress } from '@/components/scans/scan-progress';
 import type { Project, Contract, ScanResult } from '@valorasec/shared';
 
 export default function ProjectDetailPage() {
@@ -21,12 +24,37 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
-  const [scanning, setScanning] = useState<string | null>(null);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanningContractId, setScanningContractId] = useState<string | null>(null);
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null);
 
   const [showAddContract, setShowAddContract] = useState(false);
   const [contractName, setContractName] = useState('');
   const [contractAddress, setContractAddress] = useState('');
+
+  const { activeScans, setActiveScan } = useScanStore();
+
+  // Restore background active scan if user navigated away and returned
+  useEffect(() => {
+    if (!projectId || currentScanId) return;
+    const found = Object.values(activeScans).find((s) => s.projectId === projectId);
+    if (found) {
+      setCurrentScanId(found.scanId);
+      setScanningContractId(found.contractId);
+    }
+  }, [projectId, activeScans, currentScanId]);
+
+  // Hook for real-time polling (2s interval, react-query enabled)
+  const scanProgress = useScanProgress({
+    scanId: currentScanId,
+    contractId: scanningContractId ?? undefined,
+    projectId,
+    onCompleted: (_result: ScanResult) => {
+      setScanningContractId(null);
+    },
+    onFailed: (_err) => {
+      setScanningContractId(null);
+    },
+  });
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -66,17 +94,32 @@ export default function ProjectDetailPage() {
   };
 
   const handleScan = async (contractId: string) => {
-    setScanning(contractId);
-    setScanResult(null);
+    setScanningContractId(contractId);
     try {
       const res = await api.runScan(projectId, contractId);
-      setScanResult(res.data);
+      const targetContract = contracts.find((c) => c.id === contractId);
+
+      // Register active background scan in store & initiate polling
+      setActiveScan({
+        scanId: res.data.id,
+        contractId,
+        projectId,
+        contractName: targetContract?.name,
+        startedAt: Date.now(),
+        expectedDurationMs: res.data.duration ?? 4000,
+      });
+
+      setCurrentScanId(res.data.id);
     } catch (err) {
       console.error(err);
-    } finally {
-      setScanning(null);
+      setScanningContractId(null);
     }
   };
+
+  const activeContractName = useMemo(() => {
+    if (!scanningContractId) return undefined;
+    return contracts.find((c) => c.id === scanningContractId)?.name;
+  }, [contracts, scanningContractId]);
 
   if (!shouldRender || loading) {
     return (
@@ -154,45 +197,18 @@ export default function ProjectDetailPage() {
           </div>
         )}
 
-        {/* Scan Results */}
-        {scanResult && (
-          <div className="cyber-card border-primary/30 animate-fade-in mb-8 p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="text-primary h-5 w-5" />
-                <h3 className="font-semibold">Scan Complete</h3>
-              </div>
-              <Badge
-                variant={
-                  scanResult.summary.score >= 70
-                    ? 'low'
-                    : scanResult.summary.score >= 40
-                      ? 'medium'
-                      : 'critical'
+        {/* Real-time Scan Progress Feedback & Results */}
+        {(currentScanId || scanProgress.data) && (
+          <div className="animate-fade-in mb-8">
+            <ScanProgress
+              progress={scanProgress}
+              contractName={activeContractName}
+              onRetry={() => {
+                if (scanningContractId) {
+                  handleScan(scanningContractId);
                 }
-              >
-                Score: {scanResult.summary.score}/100
-              </Badge>
-            </div>
-            <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-              {Object.entries(scanResult.summary.bySeverity).map(([severity, count]) =>
-                count > 0 ? (
-                  <div key={severity} className="bg-accent/30 rounded-md p-2 text-center">
-                    <div
-                      className={`text-lg font-bold ${getSeverityClass(severity).replace(/severity-/, 'text-')}`}
-                    >
-                      {count}
-                    </div>
-                    <div className="text-muted-foreground text-xs capitalize">{severity}</div>
-                  </div>
-                ) : null,
-              )}
-            </div>
-            <Link href={`/reports`}>
-              <Button variant="cyber" size="sm">
-                <FileText className="mr-2 h-4 w-4" /> View Report
-              </Button>
-            </Link>
+              }}
+            />
           </div>
         )}
 
@@ -222,9 +238,13 @@ export default function ProjectDetailPage() {
                       variant="cyber"
                       size="sm"
                       onClick={() => handleScan(contract.id)}
-                      disabled={scanning === contract.id}
+                      disabled={
+                        scanningContractId === contract.id ||
+                        (scanProgress.isPolling && currentScanId === contract.id)
+                      }
                     >
-                      {scanning === contract.id ? (
+                      {scanningContractId === contract.id ||
+                      (scanProgress.isPolling && currentScanId === contract.id) ? (
                         <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                       ) : (
                         <Play className="mr-1 h-4 w-4" />
