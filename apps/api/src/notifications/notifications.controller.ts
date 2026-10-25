@@ -1,6 +1,6 @@
-import { Controller, Get, Patch, Param, UseGuards, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { NotificationsService } from './notifications.service';
+import { Controller, Get, Patch, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { NotificationsService, NotificationQueryDto } from './notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { Request } from 'express';
 
@@ -16,9 +16,15 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Get all notifications' })
-  async findAll(@Req() req: JwtRequest) {
-    return this.notificationsService.findAll(req.user.sub);
+  @ApiOperation({ summary: 'Get all notifications with pagination, sorting, and search' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'read', required: false, type: Boolean })
+  async findAll(@Req() req: JwtRequest, @Query() query: NotificationQueryDto) {
+    return this.notificationsService.findAll(req.user.sub, query);
   }
 
   @Patch(':id/read')

@@ -1,21 +1,27 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+
+export class ProjectQueryDto extends PaginationDto {
+  network?: string;
+}
 
 @Injectable()
 export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(
-    userId: string,
-    query: { page?: number; limit?: number; search?: string; network?: string },
-  ) {
-    const page = Number(query.page) || 1;
-    const limit = Number(query.limit) || 10;
-    const skip = (page - 1) * limit;
+  async findAll(userId: string, query: ProjectQueryDto = new PaginationDto()) {
+    const pageDto = Object.assign(new PaginationDto(), query);
+    const skip = pageDto.getSkip();
+    const limit = pageDto.getLimit();
+    const orderBy = pageDto.getOrderBy(['name', 'createdAt', 'updatedAt'], 'updatedAt');
 
     const where: Record<string, unknown> = { userId };
-    if (query.search) {
-      where.name = { contains: query.search, mode: 'insensitive' };
+    if (pageDto.search) {
+      where.OR = [
+        { name: { contains: pageDto.search, mode: 'insensitive' } },
+        { description: { contains: pageDto.search, mode: 'insensitive' } },
+      ];
     }
     if (query.network) {
       where.network = query.network;
@@ -27,19 +33,14 @@ export class ProjectsService {
         include: { contracts: true },
         skip,
         take: limit,
-        orderBy: { updatedAt: 'desc' },
+        orderBy,
       }),
       this.prisma.project.count({ where }),
     ]);
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: pageDto.buildMeta(total),
     };
   }
 
@@ -58,22 +59,29 @@ export class ProjectsService {
 
   async create(userId: string, data: { name: string; description?: string; network: string }) {
     return this.prisma.project.create({
-      data: { ...data, userId },
-      include: { contracts: true },
+      data: {
+        userId,
+        name: data.name,
+        description: data.description,
+        network: data.network,
+      },
     });
   }
 
   async update(userId: string, projectId: string, data: { name?: string; description?: string }) {
-    await this.findOne(userId, projectId); // verify ownership
+    await this.findOne(userId, projectId);
+
     return this.prisma.project.update({
       where: { id: projectId },
       data,
-      include: { contracts: true },
     });
   }
 
   async remove(userId: string, projectId: string) {
     await this.findOne(userId, projectId);
-    await this.prisma.project.delete({ where: { id: projectId } });
+
+    return this.prisma.project.delete({
+      where: { id: projectId },
+    });
   }
 }

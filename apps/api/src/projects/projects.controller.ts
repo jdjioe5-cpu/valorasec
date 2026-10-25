@@ -10,12 +10,11 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ProjectsService } from './projects.service';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ProjectsService, ProjectQueryDto } from './projects.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
-import { PaginationDto } from '../common/dto/pagination.dto';
 import type { Request } from 'express';
 
 interface JwtRequest extends Request {
@@ -30,11 +29,16 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List all projects for current user' })
-  async findAll(
-    @Req() req: JwtRequest,
-    @Query() query: PaginationDto & { search?: string; network?: string },
-  ) {
+  @ApiOperation({
+    summary: 'List all projects for current user with pagination, sorting, and search',
+  })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, enum: ['asc', 'desc'] })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'network', required: false, type: String })
+  async findAll(@Req() req: JwtRequest, @Query() query: ProjectQueryDto) {
     return this.projectsService.findAll(req.user.sub, query);
   }
 
@@ -63,6 +67,6 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Delete a project' })
   async remove(@Req() req: JwtRequest, @Param('id') id: string) {
     await this.projectsService.remove(req.user.sub, id);
-    return { data: { message: 'Project deleted' } };
+    return { data: { message: 'Project deleted successfully' } };
   }
 }

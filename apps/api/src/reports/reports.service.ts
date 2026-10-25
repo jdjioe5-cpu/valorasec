@@ -1,5 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
+
+export class ReportQueryDto extends PaginationDto {
+  projectId?: string;
+  userId?: string;
+  status?: string;
+}
 
 @Injectable()
 export class ReportsService {
@@ -31,14 +38,19 @@ export class ReportsService {
     return report;
   }
 
-  async findAll(query: { page?: number; limit?: number; projectId?: string; userId?: string }) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const skip = (page - 1) * limit;
+  async findAll(query: ReportQueryDto = new PaginationDto()) {
+    const pageDto = Object.assign(new PaginationDto(), query);
+    const skip = pageDto.getSkip();
+    const limit = pageDto.getLimit();
+    const orderBy = pageDto.getOrderBy(['createdAt', 'updatedAt', 'title'], 'createdAt');
 
     const where: Record<string, unknown> = {};
     if (query.projectId) where.projectId = query.projectId;
     if (query.userId) where.userId = query.userId;
+    if (query.status) where.status = query.status;
+    if (pageDto.search) {
+      where.title = { contains: pageDto.search, mode: 'insensitive' };
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.report.findMany({
@@ -46,14 +58,14 @@ export class ReportsService {
         include: { contract: true, project: true },
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy,
       }),
       this.prisma.report.count({ where }),
     ]);
 
     return {
       data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: pageDto.buildMeta(total),
     };
   }
 

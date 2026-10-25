@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { getAnalyzer } from '@valorasec/analyzer';
 import type { ScanResult } from '@valorasec/shared';
 
@@ -56,13 +57,20 @@ export class ScansService {
     return scan;
   }
 
-  async getHistory(contractId: string, page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
+  async getHistory(contractId: string, queryOrPage: PaginationDto | number = 1, limitArg?: number) {
+    const pageDto =
+      typeof queryOrPage === 'number'
+        ? Object.assign(new PaginationDto(), { page: queryOrPage, limit: limitArg ?? 10 })
+        : Object.assign(new PaginationDto(), queryOrPage);
+
+    const skip = pageDto.getSkip();
+    const limit = pageDto.getLimit();
+    const orderBy = pageDto.getOrderBy(['startedAt', 'completedAt', 'duration'], 'startedAt');
 
     const [data, total] = await Promise.all([
       this.prisma.scan.findMany({
         where: { contractId },
-        orderBy: { startedAt: 'desc' },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -71,12 +79,7 @@ export class ScansService {
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      },
+      meta: pageDto.buildMeta(total),
     };
   }
 }
