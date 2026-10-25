@@ -49,7 +49,7 @@ function createModelMock(): PrismaModelMock {
  * updateMany, delete, deleteMany, count) are jest mocks.
  */
 export function createPrismaMock(): PrismaMock {
-  return {
+  const mock: PrismaMock = {
     user: createModelMock(),
     session: createModelMock(),
     project: createModelMock(),
@@ -62,4 +62,16 @@ export function createPrismaMock(): PrismaMock {
     $disconnect: jest.fn(),
     $transaction: jest.fn(),
   };
+
+  mock.$transaction.mockImplementation(async (arg: unknown) => {
+    if (typeof arg === 'function') {
+      return (arg as (tx: PrismaMock) => Promise<unknown>)(mock);
+    }
+    if (Array.isArray(arg)) {
+      return Promise.all(arg);
+    }
+    return arg;
+  });
+
+  return mock;
 }

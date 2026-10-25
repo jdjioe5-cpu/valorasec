@@ -1,17 +1,21 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { TokenRevocationService } from './token-revocation.service';
 import type { AuthTokens, LoginRequest, RegisterRequest } from '@valorasec/shared';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly tokenRevocation: TokenRevocationService,
   ) {}
 
   private generateRefreshToken(): string {
@@ -22,7 +26,7 @@ export class AuthService {
     const accessToken = this.jwt.sign({ sub: userId });
     const refreshToken = this.generateRefreshToken();
     const expiresInMs =
-      parseInt(this.config.get<string>('JWT_REFRESH_EXPIRES_IN_MS', '604800000')) || 604800000; // 7 days
+      parseInt(this.config.get<string>('JWT_REFRESH_EXPIRES_IN_MS', '604800000'), 10) || 604800000; // 7 days
 
     await this.prisma.session.create({
       data: {
@@ -112,6 +116,39 @@ export class AuthService {
   async refreshToken(
     token: string,
   ): Promise<{ user: Record<string, unknown>; tokens: AuthTokens }> {
+    // 1. Detect rotation reuse (Replay Attack)
+    const revocation = await this.tokenRevocation.checkRevocation(token);
+    if (revocation.isRevoked && revocation.userId) {
+      this.logger.warn(
+        `Rotation reuse detected for user ${revocation.userId}. Revoking all sessions.`,
+      );
+
+      // Revoke all active sessions for this user
+      await this.prisma.session.deleteMany({
+        where: { userId: revocation.userId },
+      });
+
+      // Trigger security alert notification to user
+      await this.prisma.notification.create({
+        data: {
+          userId: revocation.userId,
+          type: 'security_alert',
+          title: 'Security Alert: Suspicious Token Reuse Detected',
+          message:
+            'A previously rotated refresh token was reused. All active sessions have been terminated to safeguard your account.',
+          metadata: {
+            reason: 'token_reuse_detected',
+            timestamp: new Date().toISOString(),
+          },
+        },
+      });
+
+      throw new UnauthorizedException(
+        'Refresh token reuse detected. All sessions have been revoked.',
+      );
+    }
+
+    // 2. Validate current session
     const session = await this.prisma.session.findUnique({
       where: { refreshToken: token },
     });
@@ -123,7 +160,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
-    // Get user information
+    // 3. Get user information
     const user = await this.prisma.user.findUnique({
       where: { id: session.userId },
       select: {
@@ -138,13 +175,40 @@ export class AuthService {
       },
     });
 
-    // Delete old session
-    await this.prisma.session.delete({ where: { id: session.id } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
 
-    // Create new tokens
-    const tokens = await this.generateTokens(session.userId);
+    // 4. Atomically delete old session and create new session in a single transaction
+    const newRefreshToken = this.generateRefreshToken();
+    const expiresInMs =
+      parseInt(this.config.get<string>('JWT_REFRESH_EXPIRES_IN_MS', '604800000'), 10) || 604800000;
+    const expiresAt = new Date(Date.now() + expiresInMs);
 
-    return { user: user!, tokens };
+    await this.prisma.$transaction(async (tx) => {
+      await tx.session.delete({ where: { id: session.id } });
+      await tx.session.create({
+        data: {
+          userId: session.userId,
+          refreshToken: newRefreshToken,
+          expiresAt,
+        },
+      });
+    });
+
+    // 5. Mark the old refresh token as revoked/rotated for replay attack detection
+    await this.tokenRevocation.recordRevokedToken(token, session.userId, expiresInMs);
+
+    const accessToken = this.jwt.sign({ sub: session.userId });
+
+    return {
+      user,
+      tokens: {
+        accessToken,
+        refreshToken: newRefreshToken,
+        expiresIn: expiresInMs,
+      },
+    };
   }
 
   async logout(refreshToken: string): Promise<void> {
@@ -154,6 +218,8 @@ export class AuthService {
 
     if (session) {
       await this.prisma.session.delete({ where: { id: session.id } });
+      // Record as revoked so attempting to reuse it triggers replay detection
+      await this.tokenRevocation.recordRevokedToken(refreshToken, session.userId);
     }
   }
 
