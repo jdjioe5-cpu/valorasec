@@ -47,6 +47,19 @@ export interface Finding {
 
 export type ScanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'deleted';
 
+export interface IncrementalScanStats {
+  isIncremental: boolean;
+  cacheHit: boolean;
+  totalFunctions: number;
+  changedFunctions: string[];
+  unchangedFunctions: string[];
+  scannedFunctionCount: number;
+  skippedFunctionCount: number;
+  inheritedFindingsCount: number;
+  newFindingsCount: number;
+  timeSavedPercent?: number;
+}
+
 export interface ScanResult {
   id: string;
   projectId: string;
@@ -57,6 +70,8 @@ export interface ScanResult {
   startedAt: string;
   completedAt?: string;
   duration?: number;
+  sourceHash?: string;
+  incrementalStats?: IncrementalScanStats;
 }
 
 export interface ScanSummary {

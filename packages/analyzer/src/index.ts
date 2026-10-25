@@ -1,8 +1,32 @@
-import type { AnalyzerRule, Finding, ScanResult, ScanSummary, Severity } from '@valorasec/shared';
+import type {
+  AnalyzerRule,
+  Finding,
+  IncrementalScanStats,
+  ScanResult,
+  ScanSummary,
+  Severity,
+} from '@valorasec/shared';
+import {
+  computeSha256,
+  extractFunctionChunks,
+  diffFunctionChunks,
+  preserveAndRebaseFindings,
+  buildIncrementalStats,
+  type FunctionChunk,
+} from './incremental';
+
+export {
+  computeSha256,
+  extractFunctionChunks,
+  diffFunctionChunks,
+  preserveAndRebaseFindings,
+  buildIncrementalStats,
+  type FunctionChunk,
+} from './incremental';
 
 // ─── Mock Rules ──────────────────────────────────────────────────────────
 
-const MOCK_RULES: AnalyzerRule[] = [
+export const MOCK_RULES: AnalyzerRule[] = [
   {
     id: 'R001',
     name: 'missing-authorization-check',
@@ -88,13 +112,13 @@ const MOCK_RULES: AnalyzerRule[] = [
   },
 ];
 
-// ─── Mock Findings Generator ─────────────────────────────────────────────
+let findingSeq = 0;
 
-function generateMockFindings(rules: AnalyzerRule[], file: string): Finding[] {
+function generateRandomMockFindings(rules: AnalyzerRule[], file: string): Finding[] {
   const shuffled = [...rules].sort(() => Math.random() - 0.5);
   const count = Math.floor(Math.random() * 5) + 2; // 2-6 findings
   return shuffled.slice(0, count).map((rule, index) => ({
-    id: `FND-${Date.now()}-${index}`,
+    id: `FND-${Date.now() * 1000 + (++findingSeq % 1000)}-${index}`,
     ruleId: rule.id,
     title: rule.name
       .split('-')
@@ -112,6 +136,79 @@ function generateMockFindings(rules: AnalyzerRule[], file: string): Finding[] {
   }));
 }
 
+export const DEFAULT_MOCK_CONTRACT_SOURCE = `
+pub fn initialize(env: Env, admin: Address) {
+    admin.require_auth();
+    env.storage().instance().set(&DataKey::Admin, &admin);
+}
+
+pub fn transfer(env: Env, from: Address, to: Address, amount: i128) {
+    from.require_auth();
+    let balance = get_balance(&env, &from);
+    if balance < amount {
+        panic!("insufficient balance");
+    }
+    set_balance(&env, &from, balance - amount);
+    set_balance(&env, &to, get_balance(&env, &to) + amount);
+}
+
+pub fn balance(env: Env, id: Address) -> i128 {
+    get_balance(&env, &id)
+}
+
+pub fn approve(env: Env, from: Address, spender: Address, amount: i128) {
+    from.require_auth();
+    env.storage().persistent().set(&DataKey::Allowance(from, spender), &amount);
+}
+
+pub fn mint(env: Env, to: Address, amount: i128) {
+    let admin: Address = env.storage().instance().get(&DataKey::Admin).unwrap();
+    admin.require_auth();
+    let cur = get_balance(&env, &to);
+    set_balance(&env, &to, cur + amount);
+}
+`.trim();
+
+// ─── Findings Generator for Chunks ───────────────────────────────────────
+
+export function generateFindingsForChunks(
+  rules: AnalyzerRule[],
+  file: string,
+  targetChunks: FunctionChunk[],
+): Finding[] {
+  const findings: Finding[] = [];
+  if (targetChunks.length === 0) return findings;
+
+  for (const chunk of targetChunks) {
+    const ruleIndex =
+      Math.abs(chunk.name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)) % rules.length;
+
+    const rule = rules[ruleIndex];
+    if (!rule) continue;
+    const seq = ++findingSeq;
+
+    findings.push({
+      id: `FND-${Date.now()}-${seq}`,
+      ruleId: rule.id,
+      title: rule.name
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' '),
+      description: `In function \`${chunk.name}\`: ${rule.description}`,
+      severity: rule.severity,
+      location: {
+        file,
+        line: chunk.startLine + 1,
+        column: 4,
+      },
+      recommendation: rule.recommendation,
+      references: rule.references,
+    });
+  }
+
+  return findings;
+}
+
 function computeSummary(findings: Finding[], linesAnalyzed: number): ScanSummary {
   const bySeverity: Record<Severity, number> = {
     critical: 0,
@@ -125,7 +222,6 @@ function computeSummary(findings: Finding[], linesAnalyzed: number): ScanSummary
     bySeverity[f.severity]++;
   }
 
-  // Compute score: deduct points based on severity counts
   const deductions =
     bySeverity.critical * 25 +
     bySeverity.high * 15 +
@@ -150,16 +246,21 @@ export interface AnalyzerOptions {
   contractId: string;
   projectId: string;
   sourceHash?: string;
+  sourceCode?: string;
+  previousScan?: ScanResult;
+  forceFullScan?: boolean;
   file?: string;
 }
 
 export interface AnalyzerResult {
   scan: ScanResult;
   rules: AnalyzerRule[];
+  incrementalStats?: IncrementalScanStats;
 }
 
 export class SecurityAnalyzer {
   private rules: AnalyzerRule[] = [...MOCK_RULES];
+  private scanCache = new Map<string, { scan: ScanResult; chunks: Map<string, FunctionChunk> }>();
 
   getRules(): AnalyzerRule[] {
     return [...this.rules];
@@ -169,27 +270,129 @@ export class SecurityAnalyzer {
     this.rules.push(rule);
   }
 
+  clearCache(): void {
+    this.scanCache.clear();
+  }
+
   async analyze(options: AnalyzerOptions): Promise<AnalyzerResult> {
     const startTime = Date.now();
     const sourceFile = options.file ?? 'contract/src/lib.rs';
 
-    const linesAnalyzed = Math.floor(Math.random() * 500) + 100;
-    const findings = generateMockFindings(this.rules, sourceFile);
-    const summary = computeSummary(findings, linesAnalyzed);
+    // If completely default mock options without code, hash, or previous scan, run backward-compatible mock
+    const isGenericMock = !options.sourceCode && !options.sourceHash && !options.previousScan;
+
+    if (isGenericMock) {
+      const linesAnalyzed = Math.floor(Math.random() * 500) + 100;
+      const findings = generateRandomMockFindings(this.rules, sourceFile);
+      const summary = computeSummary(findings, linesAnalyzed);
+
+      const scan: ScanResult = {
+        id: `scan-${Date.now()}`,
+        projectId: options.projectId,
+        contractId: options.contractId,
+        status: 'completed',
+        findings,
+        summary,
+        startedAt: new Date(startTime).toISOString(),
+        completedAt: new Date().toISOString(),
+        duration: Date.now() - startTime,
+      };
+
+      return { scan, rules: this.getRules() };
+    }
+
+    // Incremental or scoped execution with source code or hash
+    const sourceCode = options.sourceCode ?? DEFAULT_MOCK_CONTRACT_SOURCE;
+    const currentSourceHash = options.sourceHash ?? computeSha256(sourceCode);
+    const currentChunks = extractFunctionChunks(sourceCode);
+
+    const cachedEntry = this.scanCache.get(options.contractId);
+    const previousScan = options.previousScan ?? cachedEntry?.scan;
+    const previousChunks = cachedEntry?.chunks ?? new Map<string, FunctionChunk>();
+
+    const linesAnalyzed = sourceCode.split('\n').length;
+    let finalFindings: Finding[] = [];
+    let incrementalStats: IncrementalScanStats | undefined;
+
+    const canDoIncremental =
+      !options.forceFullScan &&
+      previousScan &&
+      previousScan.status === 'completed' &&
+      previousChunks.size > 0;
+
+    if (canDoIncremental) {
+      const diff = diffFunctionChunks(
+        previousChunks,
+        currentChunks,
+        previousScan.sourceHash,
+        currentSourceHash,
+      );
+
+      if (diff.isIdentical) {
+        finalFindings = [...previousScan.findings];
+        incrementalStats = buildIncrementalStats(
+          diff,
+          currentChunks.size,
+          previousScan.findings.length,
+          0,
+          true,
+        );
+      } else {
+        const preservedFindings = preserveAndRebaseFindings(
+          previousScan.findings,
+          previousChunks,
+          diff,
+        );
+
+        const scopedChunks: FunctionChunk[] = [];
+        for (const fnName of [...diff.changedFunctions, ...diff.addedFunctions]) {
+          const chunk = currentChunks.get(fnName);
+          if (chunk) scopedChunks.push(chunk);
+        }
+
+        const newFindings = generateFindingsForChunks(this.rules, sourceFile, scopedChunks);
+        finalFindings = [...preservedFindings, ...newFindings];
+
+        incrementalStats = buildIncrementalStats(
+          diff,
+          currentChunks.size,
+          preservedFindings.length,
+          newFindings.length,
+          false,
+        );
+      }
+    } else {
+      const allChunks = Array.from(currentChunks.values());
+      finalFindings = generateFindingsForChunks(this.rules, sourceFile, allChunks);
+      if (allChunks.length === 0) {
+        finalFindings = [];
+      }
+    }
+
+    const summary = computeSummary(finalFindings, linesAnalyzed);
+    const duration = Math.max(1, Date.now() - startTime);
 
     const scan: ScanResult = {
       id: `scan-${Date.now()}`,
       projectId: options.projectId,
       contractId: options.contractId,
       status: 'completed',
-      findings,
+      findings: finalFindings,
       summary,
       startedAt: new Date(startTime).toISOString(),
       completedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
+      duration,
+      sourceHash: currentSourceHash,
+      incrementalStats,
     };
 
-    return { scan, rules: this.getRules() };
+    this.scanCache.set(options.contractId, { scan, chunks: currentChunks });
+
+    return {
+      scan,
+      rules: this.getRules(),
+      incrementalStats,
+    };
   }
 }
 

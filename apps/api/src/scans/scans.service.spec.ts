@@ -94,6 +94,37 @@ describe('ScansService', () => {
       expect(result).toBeDefined();
       expect(result.status).toBe('completed');
     });
+
+    it('should query previous scan when forceFullScan is false', async () => {
+      const mockContract = createMockContract({ sourceHash: 'hash-abc' });
+      const mockPrevScan = createMockScan({
+        status: 'completed',
+        startedAt: new Date(),
+        completedAt: new Date(),
+      });
+      prisma.contract.findFirst.mockResolvedValue(mockContract);
+      prisma.scan.findFirst.mockResolvedValue(mockPrevScan);
+      prisma.scan.create.mockResolvedValue(createMockScan());
+
+      const result = await service.runScan('project-1', 'contract-1', false);
+
+      expect(result).toBeDefined();
+      expect(prisma.scan.findFirst).toHaveBeenCalledWith({
+        where: { contractId: 'contract-1', status: 'completed' },
+        orderBy: { startedAt: 'desc' },
+      });
+    });
+
+    it('should bypass previous scan query when forceFullScan is true', async () => {
+      const mockContract = createMockContract({ sourceHash: 'hash-abc' });
+      prisma.contract.findFirst.mockResolvedValue(mockContract);
+      prisma.scan.create.mockResolvedValue(createMockScan());
+
+      const result = await service.runScan('project-1', 'contract-1', true);
+
+      expect(result).toBeDefined();
+      expect(prisma.scan.findFirst).not.toHaveBeenCalled();
+    });
   });
 
   // ─── getScan ───────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ScansService } from './scans.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -12,8 +12,19 @@ export class ScansController {
 
   @Post('projects/:projectId/contracts/:contractId/scan')
   @ApiOperation({ summary: 'Run a security scan on a contract' })
-  async runScan(@Param('projectId') projectId: string, @Param('contractId') contractId: string) {
-    const scan = await this.scansService.runScan(projectId, contractId);
+  @ApiQuery({
+    name: 'forceFullScan',
+    required: false,
+    type: Boolean,
+    description: 'Force full re-scan bypassing incremental cache',
+  })
+  async runScan(
+    @Param('projectId') projectId: string,
+    @Param('contractId') contractId: string,
+    @Query('forceFullScan') forceFullScan?: string,
+  ) {
+    const isForce = forceFullScan === 'true' || forceFullScan === '1';
+    const scan = await this.scansService.runScan(projectId, contractId, isForce);
     return { data: scan };
   }
 

@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getAnalyzer } from '@valorasec/analyzer';
-import type { ScanResult } from '@valorasec/shared';
+import type { Finding, ScanResult, ScanStatus, ScanSummary } from '@valorasec/shared';
 
 @Injectable()
 export class ScansService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async runScan(projectId: string, contractId: string): Promise<ScanResult> {
+  async runScan(projectId: string, contractId: string, forceFullScan = false): Promise<ScanResult> {
     // Verify contract exists in project
     const contract = await this.prisma.contract.findFirst({
       where: { id: contractId, projectId },
@@ -17,12 +17,38 @@ export class ScansService {
       throw new NotFoundException('Contract not found in this project');
     }
 
-    // Run the analyzer
+    // Retrieve previous completed scan for incremental analysis if not forced
+    let previousScan: ScanResult | undefined;
+    if (!forceFullScan) {
+      const lastScan = await this.prisma.scan.findFirst({
+        where: { contractId, status: 'completed' },
+        orderBy: { startedAt: 'desc' },
+      });
+
+      if (lastScan) {
+        previousScan = {
+          id: lastScan.id,
+          projectId: lastScan.projectId,
+          contractId: lastScan.contractId,
+          status: lastScan.status as ScanStatus,
+          findings: lastScan.findings as unknown as Finding[],
+          summary: lastScan.summary as unknown as ScanSummary,
+          startedAt: lastScan.startedAt.toISOString(),
+          completedAt: lastScan.completedAt ? lastScan.completedAt.toISOString() : undefined,
+          duration: lastScan.duration ?? undefined,
+          sourceHash: contract.sourceHash ?? undefined,
+        };
+      }
+    }
+
+    // Run the analyzer with incremental diff & scoping
     const analyzer = getAnalyzer();
     const result = await analyzer.analyze({
       contractId,
       projectId,
       sourceHash: contract.sourceHash ?? undefined,
+      previousScan,
+      forceFullScan,
     });
 
     // Save scan to database
