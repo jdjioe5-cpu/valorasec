@@ -207,4 +207,72 @@ describe('ReportsService', () => {
       expect(typeof result.transactionHash).toBe('string');
     });
   });
+
+  // ─── exportReport ────────────────────────────────────────────────────────
+
+  describe('exportReport', () => {
+    const mockFullReport = {
+      ...createMockReport({
+        id: 'report-12345678',
+        title: 'Audit Report Soroban',
+        status: 'published',
+        verifiedOnChain: true,
+        findings: [
+          {
+            id: 'F-1',
+            severity: 'high',
+            title: 'Reentrancy vulnerability',
+            description: 'Unprotected external call',
+            recommendation: 'Use reentrancy guard',
+            file: 'src/token.rs',
+            line: 42,
+          },
+        ],
+      }),
+      project: { name: 'DeFi Project' },
+      contract: { name: 'TokenContract', address: 'C123' },
+    };
+
+    it('should export report as JSON by default', async () => {
+      prisma.report.findFirst.mockResolvedValue(mockFullReport);
+
+      const result = await service.exportReport('user-1', 'report-12345678', 'json');
+
+      expect(result).toBeDefined();
+      expect(result.mimeType).toBe('application/json; charset=utf-8');
+      expect(result.filename).toContain('report-audit_report_soroban-report-1');
+      expect(result.filename.endsWith('.json')).toBe(true);
+      expect((result.data as Record<string, unknown>).id).toBe('report-12345678');
+      expect((result.data as Record<string, unknown>).exportedAt).toBeDefined();
+    });
+
+    it('should export report as CSV with UTF-8 BOM', async () => {
+      prisma.report.findFirst.mockResolvedValue(mockFullReport);
+
+      const result = await service.exportReport('user-1', 'report-12345678', 'csv');
+
+      expect(result).toBeDefined();
+      expect(result.mimeType).toBe('text/csv; charset=utf-8');
+      expect(result.filename.endsWith('.csv')).toBe(true);
+      expect(typeof result.data).toBe('string');
+      expect((result.data as string).startsWith('\uFEFF')).toBe(true);
+      expect(result.data).toContain('Reentrancy vulnerability');
+    });
+
+    it('should throw NotFoundException when report does not exist or belong to user', async () => {
+      prisma.report.findFirst.mockResolvedValue(null);
+
+      await expect(service.exportReport('user-1', 'missing', 'json')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw BadRequestException when format is unsupported', async () => {
+      prisma.report.findFirst.mockResolvedValue(mockFullReport);
+
+      await expect(service.exportReport('user-1', 'report-12345678', 'xml')).rejects.toThrow(
+        'Unsupported export format',
+      );
+    });
+  });
 });

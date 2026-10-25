@@ -287,3 +287,19 @@ export interface BugBounty {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Data Export (Issue #53) ─────────────────────────────────────────────
+
+export type ExportFormat = 'csv' | 'json' | 'pdf';
+
+export interface ProjectExportData {
+  project: Project;
+  contracts: Contract[];
+  scans: Array<ScanResult & { findingsCount: number }>;
+  exportedAt: string;
+}
+
+export interface ReportExportData {
+  report: Report;
+  exportedAt: string;
+}

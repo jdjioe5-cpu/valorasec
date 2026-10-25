@@ -3,6 +3,7 @@ import {
   type ApiSuccess,
   type AuthTokens,
   type Contract,
+  type ExportFormat,
   type LoginRequest,
   type NetworkType,
   type PaginatedResponse,
@@ -23,10 +24,7 @@ export {
   ValidationError,
   ValoraSecError,
 } from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
-} from './errors';
+import { errorForStatus } from './errors';
 
 export interface SdkConfig {
   baseUrl: string;
@@ -91,7 +89,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -185,6 +183,31 @@ export class ValoraSecClient {
     await this.request(`/api/projects/${id}`, { method: 'DELETE' });
   }
 
+  getProjectExportUrl(id: string, format: ExportFormat = 'json'): string {
+    return `${this.baseUrl}/api/projects/${id}/export?format=${format}`;
+  }
+
+  async exportProject(id: string, format: ExportFormat = 'json'): Promise<string> {
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    const res = await fetch(this.getProjectExportUrl(id, format), {
+      headers,
+    });
+
+    if (!res.ok) {
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
+      throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
+        code: errorBody?.error,
+        body: errorBody ?? undefined,
+      });
+    }
+
+    return res.text();
+  }
+
   // ─── Contracts ─────────────────────────────────────────────────────
 
   async getContracts(projectId: string): Promise<ApiSuccess<Contract[]>> {
@@ -255,5 +278,30 @@ export class ValoraSecClient {
     return this.request(`/api/reports/${reportId}/register`, {
       method: 'POST',
     });
+  }
+
+  getReportExportUrl(id: string, format: ExportFormat = 'json'): string {
+    return `${this.baseUrl}/api/reports/${id}/export?format=${format}`;
+  }
+
+  async exportReport(id: string, format: ExportFormat = 'json'): Promise<string> {
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    const res = await fetch(this.getReportExportUrl(id, format), {
+      headers,
+    });
+
+    if (!res.ok) {
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
+      throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
+        code: errorBody?.error,
+        body: errorBody ?? undefined,
+      });
+    }
+
+    return res.text();
   }
 }

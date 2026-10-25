@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { formatReportCsv } from '../common/export/csv-export.helper';
 
 @Injectable()
 export class ReportsService {
@@ -102,5 +103,49 @@ export class ReportsService {
       },
       include: { scan: true, contract: true, auditRecord: true },
     });
+  }
+
+  async exportReport(userId: string, reportId: string, format: string = 'json') {
+    const report = await this.prisma.report.findFirst({
+      where: { id: reportId, userId },
+      include: {
+        scan: true,
+        contract: true,
+        project: true,
+        auditRecord: true,
+      },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Report not found');
+    }
+
+    const exportFormat = (format || 'json').toLowerCase();
+    const sanitizedTitle = (report.title || 'report').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+    if (exportFormat === 'csv') {
+      const csvData = formatReportCsv(report);
+      return {
+        data: csvData,
+        filename: `report-${sanitizedTitle}-${report.id.slice(0, 8)}.csv`,
+        mimeType: 'text/csv; charset=utf-8',
+      };
+    }
+
+    if (exportFormat === 'json') {
+      const exportPayload = {
+        ...report,
+        exportedAt: new Date().toISOString(),
+      };
+      return {
+        data: exportPayload,
+        filename: `report-${sanitizedTitle}-${report.id.slice(0, 8)}.json`,
+        mimeType: 'application/json; charset=utf-8',
+      };
+    }
+
+    throw new BadRequestException(
+      `Unsupported export format '${format}'. Supported formats: csv, json`,
+    );
   }
 }

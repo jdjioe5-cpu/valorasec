@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { formatProjectCsv } from '../common/export/csv-export.helper';
 
 @Injectable()
 export class ProjectsService {
@@ -75,5 +76,50 @@ export class ProjectsService {
   async remove(userId: string, projectId: string) {
     await this.findOne(userId, projectId);
     await this.prisma.project.delete({ where: { id: projectId } });
+  }
+
+  async exportProject(userId: string, projectId: string, format: string = 'json') {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, userId },
+      include: {
+        contracts: true,
+        scans: {
+          include: { contract: true },
+          orderBy: { startedAt: 'desc' },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const exportFormat = (format || 'json').toLowerCase();
+    const sanitizedName = (project.name || 'project').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+    if (exportFormat === 'csv') {
+      const csvData = formatProjectCsv(project);
+      return {
+        data: csvData,
+        filename: `project-${sanitizedName}-${project.id.slice(0, 8)}.csv`,
+        mimeType: 'text/csv; charset=utf-8',
+      };
+    }
+
+    if (exportFormat === 'json') {
+      const exportPayload = {
+        ...project,
+        exportedAt: new Date().toISOString(),
+      };
+      return {
+        data: exportPayload,
+        filename: `project-${sanitizedName}-${project.id.slice(0, 8)}.json`,
+        mimeType: 'application/json; charset=utf-8',
+      };
+    }
+
+    throw new BadRequestException(
+      `Unsupported export format '${format}'. Supported formats: csv, json`,
+    );
   }
 }

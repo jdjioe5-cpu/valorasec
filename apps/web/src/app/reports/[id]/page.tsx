@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, ShieldCheck, AlertTriangle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
@@ -21,6 +21,29 @@ export default function ReportDetailPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (!report) return;
+    setExporting(format);
+    try {
+      const data = await api.exportReport(reportId, format);
+      const mime = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
+      const blob = new Blob([data], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `report-${(report.title || 'report').toLowerCase().replace(/[^a-z0-9_-]/g, '_')}-${report.id.slice(0, 8)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -80,16 +103,36 @@ export default function ReportDetailPage() {
               )}
             </div>
           </div>
-          {!report.verifiedOnChain && (
-            <Button variant="cyber" onClick={handleRegister} disabled={registering}>
-              {registering ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldCheck className="mr-2 h-4 w-4" />
-              )}
-              Register On-Chain
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport('csv')}
+              disabled={!!exporting}
+            >
+              <Download className="mr-1 h-3.5 w-3.5" />
+              {exporting === 'csv' ? 'Exporting...' : 'Export CSV'}
             </Button>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExport('json')}
+              disabled={!!exporting}
+            >
+              <Download className="mr-1 h-3.5 w-3.5" />
+              {exporting === 'json' ? 'Exporting...' : 'Export JSON'}
+            </Button>
+            {!report.verifiedOnChain && (
+              <Button variant="cyber" onClick={handleRegister} disabled={registering}>
+                {registering ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                )}
+                Register On-Chain
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Summary Card */}

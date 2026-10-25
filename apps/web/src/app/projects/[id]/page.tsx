@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Shield, FileText, Loader2, Play, Activity } from 'lucide-react';
+import { ArrowLeft, Plus, Shield, FileText, Loader2, Play, Activity, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
@@ -27,6 +27,29 @@ export default function ProjectDetailPage() {
   const [showAddContract, setShowAddContract] = useState(false);
   const [contractName, setContractName] = useState('');
   const [contractAddress, setContractAddress] = useState('');
+  const [exporting, setExporting] = useState<string | null>(null);
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    if (!project) return;
+    setExporting(format);
+    try {
+      const data = await api.exportProject(projectId, format);
+      const mime = format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;';
+      const blob = new Blob([data], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `project-${project.name.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}-${project.id.slice(0, 8)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -119,9 +142,29 @@ export default function ProjectDetailPage() {
                 </span>
               </div>
             </div>
-            <Button variant="outline" onClick={() => setShowAddContract(!showAddContract)}>
-              <Plus className="mr-2 h-4 w-4" /> Add Contract
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('csv')}
+                disabled={!!exporting}
+              >
+                <Download className="mr-1 h-3.5 w-3.5" />
+                {exporting === 'csv' ? 'Exporting...' : 'Export CSV'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport('json')}
+                disabled={!!exporting}
+              >
+                <Download className="mr-1 h-3.5 w-3.5" />
+                {exporting === 'json' ? 'Exporting...' : 'Export JSON'}
+              </Button>
+              <Button variant="outline" onClick={() => setShowAddContract(!showAddContract)}>
+                <Plus className="mr-2 h-4 w-4" /> Add Contract
+              </Button>
+            </div>
           </div>
         </div>
 

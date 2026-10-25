@@ -1,9 +1,9 @@
-import { Controller, Post, Get, Param, Query, UseGuards, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Post, Get, Param, Query, UseGuards, Req, Res } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaginationDto } from '../common/dto/pagination.dto';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 
 interface JwtRequest extends Request {
   user: { sub: string };
@@ -27,6 +27,21 @@ export class ReportsController {
   async findOne(@Param('id') id: string) {
     const report = await this.reportsService.findOne(id);
     return { data: report };
+  }
+
+  @Get(':id/export')
+  @ApiOperation({ summary: 'Export report data (CSV or JSON)' })
+  @ApiQuery({ name: 'format', required: false, enum: ['json', 'csv'] })
+  async exportReport(
+    @Req() req: JwtRequest,
+    @Param('id') id: string,
+    @Query('format') format: string = 'json',
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.reportsService.exportReport(req.user.sub, id, format);
+    res.setHeader('Content-Type', result.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+    return result.data;
   }
 
   @Post('scans/:scanId/report')

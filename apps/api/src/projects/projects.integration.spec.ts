@@ -326,4 +326,80 @@ describe('Projects (integration)', () => {
         .expect(404);
     });
   });
+
+  // ─── GET /api/projects/:id/export ──────────────────────────────────────
+
+  describe('GET /api/projects/:id/export', () => {
+    const exportProjectData = {
+      ...mockProject({
+        id: projectId,
+        name: 'Audit Protocol',
+        status: 'active',
+        network: 'testnet',
+      }),
+      contracts: [{ id: 'c1', name: 'Vault', address: 'C123' }],
+      scans: [
+        {
+          id: 's1',
+          contractId: 'c1',
+          status: 'completed',
+          startedAt: new Date('2026-01-01T00:00:00.000Z'),
+          findings: [{ id: 'f1', severity: 'high', title: 'Reentrancy' }],
+        },
+      ],
+    };
+
+    it('should return 401 when unauthenticated', async () => {
+      await request(app.getHttpServer()).get(`/api/projects/${projectId}/export`).expect(401);
+    });
+
+    it('should export project as JSON', async () => {
+      prisma.project.findFirst.mockResolvedValue(exportProjectData);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/projects/${projectId}/export?format=json`)
+        .set(authHeader())
+        .expect(200);
+
+      expect(res.headers['content-type']).toContain('application/json');
+      expect(res.headers['content-disposition']).toContain(
+        'attachment; filename="project-audit_protocol-project-.json"',
+      );
+      expect(res.body.id).toBe(projectId);
+      expect(res.body.exportedAt).toBeDefined();
+    });
+
+    it('should export project as CSV', async () => {
+      prisma.project.findFirst.mockResolvedValue(exportProjectData);
+
+      const res = await request(app.getHttpServer())
+        .get(`/api/projects/${projectId}/export?format=csv`)
+        .set(authHeader())
+        .expect(200);
+
+      expect(res.headers['content-type']).toContain('text/csv');
+      expect(res.headers['content-disposition']).toContain('.csv');
+      expect(res.text.startsWith('\uFEFF')).toBe(true);
+      expect(res.text).toContain('Audit Protocol');
+      expect(res.text).toContain('Reentrancy');
+    });
+
+    it('should return 404 for non-existent project', async () => {
+      prisma.project.findFirst.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .get(`/api/projects/non-existent/export`)
+        .set(authHeader())
+        .expect(404);
+    });
+
+    it('should return 400 for unsupported format', async () => {
+      prisma.project.findFirst.mockResolvedValue(exportProjectData);
+
+      await request(app.getHttpServer())
+        .get(`/api/projects/${projectId}/export?format=invalid`)
+        .set(authHeader())
+        .expect(400);
+    });
+  });
 });
