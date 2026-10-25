@@ -351,3 +351,72 @@ describe('Edge cases', () => {
     expect(ids1.join(',')).not.toBe(ids2.join(','));
   });
 });
+
+// ─── Real Rust Source Analysis ───────────────────────────────────────────
+
+describe('Real Rust source code analysis', () => {
+  it('should analyze real Rust source and detect unwrap and expect panics', async () => {
+    const analyzer = new SecurityAnalyzer();
+    const sourceCode = `
+      pub fn calculate(val: Option<u32>) -> u32 {
+          let num = val.unwrap();
+          num
+      }
+    `;
+
+    const result = await analyzer.analyze({
+      contractId: 'c1',
+      projectId: 'p1',
+      sourceCode,
+      file: 'src/lib.rs',
+    });
+
+    expect(result.scan.status).toBe('completed');
+    expect(result.scan.summary.linesAnalyzed).toBe(sourceCode.split('\n').length);
+    expect(result.scan.findings.length).toBeGreaterThanOrEqual(1);
+
+    const panicFinding = result.scan.findings.find((f) => f.ruleId === 'R005');
+    expect(panicFinding).toBeDefined();
+    expect(panicFinding?.location?.file).toBe('src/lib.rs');
+    expect(panicFinding?.location?.line).toBe(3);
+  });
+
+  it('should detect missing authorization on sensitive function', async () => {
+    const analyzer = new SecurityAnalyzer();
+    const sourceCode = `
+      pub fn withdraw(env: Env, amount: i128) {
+          // Missing require_auth!
+          env.storage().instance().set(&symbol_short!("bal"), &amount);
+      }
+    `;
+
+    const result = await analyzer.analyze({
+      contractId: 'c2',
+      projectId: 'p1',
+      sourceCode,
+    });
+
+    const authFinding = result.scan.findings.find((f) => f.ruleId === 'R001');
+    expect(authFinding).toBeDefined();
+    expect(authFinding?.title).toContain('withdraw');
+  });
+
+  it('should give score 100 on clean Soroban contract with require_auth', async () => {
+    const analyzer = new SecurityAnalyzer();
+    const sourceCode = `
+      pub fn safe_op(env: Env, user: Address) {
+          user.require_auth();
+      }
+    `;
+
+    const result = await analyzer.analyze({
+      contractId: 'c3',
+      projectId: 'p1',
+      sourceCode,
+    });
+
+    expect(result.scan.findings).toHaveLength(0);
+    expect(result.scan.summary.score).toBe(100);
+    expect(result.scan.summary.totalFindings).toBe(0);
+  });
+});

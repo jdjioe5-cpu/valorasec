@@ -89,6 +89,7 @@ export interface Contract {
   address: string;
   network: NetworkType;
   sourceHash?: string;
+  sourcePath?: string;
   createdAt: string;
   updatedAt: string;
 }

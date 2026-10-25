@@ -1,6 +1,17 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ContractsService } from './contracts.service';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ContractsService, UploadedContractFile } from './contracts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateContractDto } from './dto/create-contract.dto';
 
@@ -19,9 +30,21 @@ export class ContractsController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Add a contract to a project' })
-  async create(@Param('projectId') projectId: string, @Body() dto: CreateContractDto) {
-    const contract = await this.contractsService.create(projectId, dto);
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 5 * 1024 * 1024,
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data', 'application/json')
+  @ApiOperation({ summary: 'Add a contract to a project with optional Rust source (.rs)' })
+  async create(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateContractDto,
+    @UploadedFile() file?: UploadedContractFile,
+  ) {
+    const contract = await this.contractsService.create(projectId, dto, file);
     return { data: contract };
   }
 

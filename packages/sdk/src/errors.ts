@@ -41,7 +41,9 @@ export class ValoraSecError extends Error {
 
   constructor(
     message: string,
-    options: { statusCode: number; code?: string; body?: unknown; cause?: unknown } = { statusCode: 0 },
+    options: { statusCode: number; code?: string; body?: unknown; cause?: unknown } = {
+      statusCode: 0,
+    },
   ) {
     super(message);
     this.name = new.target.name;
@@ -91,8 +93,11 @@ export class ConflictError extends ValoraSecError {
 
 /** 5xx Server Error — server-side fault, transient or persistent. */
 export class ServerError extends ValoraSecError {
-  constructor(message: string, options: { code?: string; body?: unknown; cause?: unknown } = {}) {
-    super(message, { statusCode: 500, ...options });
+  constructor(
+    message: string,
+    options: { statusCode?: number; code?: string; body?: unknown; cause?: unknown } = {},
+  ) {
+    super(message, { statusCode: options.statusCode ?? 500, ...options });
   }
 }
 
@@ -115,7 +120,7 @@ export function errorForStatus(
       return new ConflictError(message, options);
     default:
       if (status >= 500) {
-        return new ServerError(message, options);
+        return new ServerError(message, { statusCode: status, ...options });
       }
       return new ValoraSecError(message, { statusCode: status, ...options });
   }

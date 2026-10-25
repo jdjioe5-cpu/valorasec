@@ -144,6 +144,188 @@ function computeSummary(findings: Finding[], linesAnalyzed: number): ScanSummary
   };
 }
 
+// ─── Real Rust Source Analyzer ──────────────────────────────────────────
+
+function analyzeRustSource(rules: AnalyzerRule[], sourceCode: string, file: string): Finding[] {
+  const findings: Finding[] = [];
+  const lines = sourceCode.split('\n');
+  const ruleMap = new Map(rules.map((r) => [r.id, r]));
+
+  // 1. Check for unhandled panic (.unwrap(), .expect())
+  const r005 = ruleMap.get('R005');
+  if (r005) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('/*')) continue;
+
+      const unwrapIndex = line.indexOf('.unwrap()');
+      if (unwrapIndex !== -1) {
+        findings.push({
+          id: `FND-REAL-${findings.length + 1}`,
+          ruleId: r005.id,
+          title: 'Unhandled Panic via unwrap()',
+          description: 'Code contains `.unwrap()` which may panic at runtime if an error occurs.',
+          severity: r005.severity,
+          location: { file, line: i + 1, column: unwrapIndex + 1 },
+          recommendation: r005.recommendation,
+          references: r005.references,
+        });
+      }
+
+      const expectIndex = line.indexOf('.expect(');
+      if (expectIndex !== -1) {
+        findings.push({
+          id: `FND-REAL-${findings.length + 1}`,
+          ruleId: r005.id,
+          title: 'Unhandled Panic via expect()',
+          description: 'Code contains `.expect()` which causes an unhandled panic on None or Err.',
+          severity: r005.severity,
+          location: { file, line: i + 1, column: expectIndex + 1 },
+          recommendation: r005.recommendation,
+          references: r005.references,
+        });
+      }
+    }
+  }
+
+  // 2. Check for missing authorization check in public functions (R001)
+  const r001 = ruleMap.get('R001');
+  if (r001) {
+    let inPublicFn = false;
+    let currentFnName = '';
+    let fnStartLine = 0;
+    let fnStartCol = 0;
+    let fnBodyHasAuth = false;
+    let braceCount = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//')) continue;
+
+      const pubFnMatch = line.match(/pub\s+fn\s+([a-zA-Z0-9_]+)/);
+      if (pubFnMatch && !inPublicFn) {
+        currentFnName = pubFnMatch[1] ?? '';
+        inPublicFn = true;
+        fnStartLine = i + 1;
+        fnStartCol = line.indexOf('pub fn') + 1;
+        fnBodyHasAuth = false;
+        braceCount = 0;
+      }
+
+      if (inPublicFn) {
+        if (line.includes('require_auth') || line.includes('require_auth_for_args')) {
+          fnBodyHasAuth = true;
+        }
+
+        for (const char of line) {
+          if (char === '{') braceCount++;
+          if (char === '}') braceCount--;
+        }
+
+        if (braceCount === 0 && line.includes('}')) {
+          const isPrivilegedName =
+            /transfer|withdraw|mint|burn|set_|update_|admin|delete|upgrade|authorize/i.test(
+              currentFnName,
+            );
+          if (isPrivilegedName && !fnBodyHasAuth) {
+            findings.push({
+              id: `FND-REAL-${findings.length + 1}`,
+              ruleId: r001.id,
+              title: `Missing Authorization Check in ${currentFnName}`,
+              description: `Privileged function '${currentFnName}' executes without verifying caller authorization via require_auth().`,
+              severity: r001.severity,
+              location: { file, line: fnStartLine, column: fnStartCol },
+              recommendation: r001.recommendation,
+              references: r001.references,
+            });
+          }
+          inPublicFn = false;
+        }
+      }
+    }
+  }
+
+  // 3. Check for gas-inefficient loop (R006)
+  const r006 = ruleMap.get('R006');
+  if (r006) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//')) continue;
+      if (/^\s*(while\s+|loop\s*\{)/.test(line)) {
+        findings.push({
+          id: `FND-REAL-${findings.length + 1}`,
+          ruleId: r006.id,
+          title: 'Potentially Unbounded Loop',
+          description:
+            'Loop with potentially unbounded iterations may exhaust gas limits on Soroban.',
+          severity: r006.severity,
+          location: { file, line: i + 1, column: 1 },
+          recommendation: r006.recommendation,
+          references: r006.references,
+        });
+      }
+    }
+  }
+
+  // 4. Check for dead code (R004)
+  const r004 = ruleMap.get('R004');
+  if (r004) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      if (line.includes('#[allow(dead_code)]')) {
+        findings.push({
+          id: `FND-REAL-${findings.length + 1}`,
+          ruleId: r004.id,
+          title: 'Suppressed Dead Code Warning',
+          description:
+            'Dead code is explicitly allowed via attribute, which can bloat contract binary size.',
+          severity: r004.severity,
+          location: { file, line: i + 1, column: line.indexOf('#[allow(dead_code)]') + 1 },
+          recommendation: r004.recommendation,
+          references: r004.references,
+        });
+      }
+    }
+  }
+
+  // 5. Check for unsafe storage access (R002)
+  const r002 = ruleMap.get('R002');
+  if (r002) {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line) continue;
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//')) continue;
+      if (
+        line.includes('.storage().instance().get') ||
+        line.includes('.storage().persistent().get')
+      ) {
+        if (!line.includes('.unwrap_or') && !line.includes('has(')) {
+          findings.push({
+            id: `FND-REAL-${findings.length + 1}`,
+            ruleId: r002.id,
+            title: 'Direct Storage Access without Safe Fallback',
+            description: 'Direct storage retrieval without existence check or fallback value.',
+            severity: r002.severity,
+            location: { file, line: i + 1, column: line.indexOf('.storage()') + 1 },
+            recommendation: r002.recommendation,
+            references: r002.references,
+          });
+        }
+      }
+    }
+  }
+
+  return findings;
+}
+
 // ─── Analyzer ────────────────────────────────────────────────────────────
 
 export interface AnalyzerOptions {
@@ -151,6 +333,7 @@ export interface AnalyzerOptions {
   projectId: string;
   sourceHash?: string;
   file?: string;
+  sourceCode?: string;
 }
 
 export interface AnalyzerResult {
@@ -173,8 +356,17 @@ export class SecurityAnalyzer {
     const startTime = Date.now();
     const sourceFile = options.file ?? 'contract/src/lib.rs';
 
-    const linesAnalyzed = Math.floor(Math.random() * 500) + 100;
-    const findings = generateMockFindings(this.rules, sourceFile);
+    let linesAnalyzed: number;
+    let findings: Finding[];
+
+    if (options.sourceCode !== undefined) {
+      linesAnalyzed = options.sourceCode.split('\n').length;
+      findings = analyzeRustSource(this.rules, options.sourceCode, sourceFile);
+    } else {
+      linesAnalyzed = Math.floor(Math.random() * 500) + 100;
+      findings = generateMockFindings(this.rules, sourceFile);
+    }
+
     const summary = computeSummary(findings, linesAnalyzed);
 
     const scan: ScanResult = {

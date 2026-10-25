@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { getAnalyzer } from '@valorasec/analyzer';
 import type { ScanResult } from '@valorasec/shared';
+import * as fs from 'fs';
 
 @Injectable()
 export class ScansService {
@@ -17,12 +18,23 @@ export class ScansService {
       throw new NotFoundException('Contract not found in this project');
     }
 
-    // Run the analyzer
+    let sourceCode: string | undefined;
+    if (contract.sourcePath && fs.existsSync(contract.sourcePath)) {
+      try {
+        sourceCode = fs.readFileSync(contract.sourcePath, 'utf-8');
+      } catch {
+        sourceCode = undefined;
+      }
+    }
+
+    // Run the analyzer with sourceCode if available
     const analyzer = getAnalyzer();
     const result = await analyzer.analyze({
       contractId,
       projectId,
       sourceHash: contract.sourceHash ?? undefined,
+      sourceCode,
+      file: contract.name.endsWith('.rs') ? contract.name : `${contract.name}.rs`,
     });
 
     // Save scan to database

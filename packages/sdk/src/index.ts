@@ -13,6 +13,7 @@ import {
   type User,
 } from '@valorasec/shared';
 
+import { errorForStatus } from './errors';
 export {
   AuthError,
   ConflictError,
@@ -22,10 +23,6 @@ export {
   ServerError,
   ValidationError,
   ValoraSecError,
-} from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
 } from './errors';
 
 export interface SdkConfig {
@@ -57,9 +54,12 @@ export class ValoraSecClient {
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
     };
+
+    if (typeof FormData === 'undefined' || !(options.body instanceof FormData)) {
+      headers['Content-Type'] = headers['Content-Type'] ?? 'application/json';
+    }
 
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
@@ -91,7 +91,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -193,8 +193,20 @@ export class ValoraSecClient {
 
   async createContract(
     projectId: string,
-    data: { name: string; address: string; network: NetworkType },
+    data: { name: string; address: string; network: NetworkType; file?: Blob | unknown },
   ): Promise<ApiSuccess<Contract>> {
+    if (data.file && typeof FormData !== 'undefined') {
+      const formData = new FormData();
+      formData.append('name', data.name);
+      formData.append('address', data.address);
+      formData.append('network', data.network);
+      formData.append('file', data.file as Blob);
+      return this.request(`/api/projects/${projectId}/contracts`, {
+        method: 'POST',
+        body: formData,
+      });
+    }
+
     return this.request(`/api/projects/${projectId}/contracts`, {
       method: 'POST',
       body: JSON.stringify(data),

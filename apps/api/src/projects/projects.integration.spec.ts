@@ -326,4 +326,47 @@ describe('Projects (integration)', () => {
         .expect(404);
     });
   });
+
+  // ─── POST /api/projects/:id/contracts ─────────────────────────────────
+
+  describe('POST /api/projects/:id/contracts', () => {
+    it('should create contract with multipart/form-data and .rs file', async () => {
+      const rustContent = 'pub fn deposit() { require_auth(); }';
+      const fileBuffer = Buffer.from(rustContent);
+
+      prisma.contract.create.mockImplementation(
+        async ({ data }: { data: Record<string, unknown> }) => ({
+          id: 'c-upload-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ...data,
+        }),
+      );
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/contracts`)
+        .set(authHeader())
+        .field('name', 'PoolContract')
+        .field('address', 'CABC1234567890XYZ')
+        .field('network', 'testnet')
+        .attach('file', fileBuffer, 'pool.rs')
+        .expect(201);
+
+      expect(res.body.data).toBeDefined();
+      expect(res.body.data.name).toBe('PoolContract');
+      expect(res.body.data.sourceHash).toBeDefined();
+      expect(res.body.data.sourcePath).toBeDefined();
+    });
+
+    it('should reject non-.rs file upload with 400', async () => {
+      await request(app.getHttpServer())
+        .post(`/api/projects/${projectId}/contracts`)
+        .set(authHeader())
+        .field('name', 'BadContract')
+        .field('address', 'CABC1234567890XYZ')
+        .field('network', 'testnet')
+        .attach('file', Buffer.from('hello'), 'bad.txt')
+        .expect(400);
+    });
+  });
 });

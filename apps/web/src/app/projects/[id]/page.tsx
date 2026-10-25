@@ -3,7 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Plus, Shield, FileText, Loader2, Play, Activity } from 'lucide-react';
+import {
+  ArrowLeft,
+  Plus,
+  Shield,
+  FileText,
+  Loader2,
+  Play,
+  Activity,
+  Code,
+  Upload,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Navbar } from '@/components/layout/navbar';
@@ -27,6 +37,8 @@ export default function ProjectDetailPage() {
   const [showAddContract, setShowAddContract] = useState(false);
   const [contractName, setContractName] = useState('');
   const [contractAddress, setContractAddress] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shouldRender) return;
@@ -46,6 +58,22 @@ export default function ProjectDetailPage() {
     load();
   }, [projectId, shouldRender, router]);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.rs')) {
+        setUploadError('Only .rs Rust source files are accepted');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setUploadError('File size exceeds 5MB limit');
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
   const handleAddContract = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!contractName || !contractAddress) return;
@@ -55,13 +83,17 @@ export default function ProjectDetailPage() {
         name: contractName,
         address: contractAddress,
         network: project?.network ?? 'testnet',
+        file: selectedFile ?? undefined,
       });
       setContracts([...contracts, res.data]);
       setContractName('');
       setContractAddress('');
+      setSelectedFile(null);
+      setUploadError(null);
       setShowAddContract(false);
     } catch (err) {
       console.error(err);
+      setUploadError('Failed to add contract. Check file format and contract address.');
     }
   };
 
@@ -129,27 +161,67 @@ export default function ProjectDetailPage() {
         {showAddContract && (
           <div className="cyber-card animate-fade-in mb-8 p-6">
             <h3 className="mb-4 font-semibold">Add Soroban Contract</h3>
-            <form onSubmit={handleAddContract} className="flex gap-4">
-              <input
-                type="text"
-                value={contractName}
-                onChange={(e) => setContractName(e.target.value)}
-                placeholder="Contract Name"
-                className="border-input bg-background focus:ring-ring flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                required
-              />
-              <input
-                type="text"
-                value={contractAddress}
-                onChange={(e) => setContractAddress(e.target.value)}
-                placeholder="Contract Address (C...)"
-                className="border-input bg-background focus:ring-ring flex-1 rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                required
-              />
-              <Button type="submit">Add</Button>
-              <Button variant="ghost" onClick={() => setShowAddContract(false)}>
-                Cancel
-              </Button>
+            <form onSubmit={handleAddContract} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <input
+                  type="text"
+                  value={contractName}
+                  onChange={(e) => setContractName(e.target.value)}
+                  placeholder="Contract Name (e.g. LiquidityPool)"
+                  className="border-input bg-background focus:ring-ring rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  required
+                />
+                <input
+                  type="text"
+                  value={contractAddress}
+                  onChange={(e) => setContractAddress(e.target.value)}
+                  placeholder="Contract Address (C...)"
+                  className="border-input bg-background focus:ring-ring rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  required
+                />
+              </div>
+
+              {/* Source file upload */}
+              <div className="border-border bg-muted/20 rounded-md border border-dashed p-4">
+                <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <Upload className="text-primary h-4 w-4" />
+                    <div>
+                      <p className="text-xs font-medium">Rust Contract Source Code (.rs)</p>
+                      <p className="text-muted-foreground text-[11px]">
+                        Optional. Enables real AST/heuristic security scanning (Max 5MB).
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".rs"
+                    onChange={handleFileChange}
+                    className="text-muted-foreground file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer text-xs file:mr-3 file:rounded-md file:border-0 file:px-3 file:py-1 file:text-xs file:font-medium"
+                  />
+                </div>
+                {selectedFile && (
+                  <p className="mt-2 font-mono text-xs text-emerald-500">
+                    Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                  </p>
+                )}
+                {uploadError && <p className="mt-2 text-xs text-rose-500">{uploadError}</p>}
+              </div>
+
+              <div className="flex gap-2">
+                <Button type="submit">Add Contract</Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowAddContract(false);
+                    setSelectedFile(null);
+                    setUploadError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </form>
           </div>
         )}
@@ -212,7 +284,17 @@ export default function ProjectDetailPage() {
               {contracts.map((contract) => (
                 <div key={contract.id} className="cyber-card flex items-center justify-between p-5">
                   <div>
-                    <h3 className="font-semibold">{contract.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">{contract.name}</h3>
+                      {contract.sourceHash ? (
+                        <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-400">
+                          <Code className="h-3 w-3" />
+                          SHA-256: {contract.sourceHash.slice(0, 10)}...
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-[11px]">Address only</span>
+                      )}
+                    </div>
                     <p className="text-muted-foreground mt-1 font-mono text-xs">
                       {truncateAddress(contract.address)}
                     </p>
