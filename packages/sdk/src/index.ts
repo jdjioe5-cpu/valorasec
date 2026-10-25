@@ -13,19 +13,16 @@ import {
   type User,
 } from '@valorasec/shared';
 
+import { errorForStatus } from './errors';
 export {
   AuthError,
   ConflictError,
-  errorForStatus,
   ForbiddenError,
   NotFoundError,
   ServerError,
   ValidationError,
   ValoraSecError,
-} from './errors';
-import {
   errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
 } from './errors';
 
 export interface SdkConfig {
@@ -91,7 +88,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
