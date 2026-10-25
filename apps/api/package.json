@@ -16,7 +16,11 @@
     "cleanup": "ts-node -P tsconfig.json src/cleanup/cleanup.cli.ts",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev"
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
+    "db:seed": "ts-node -P tsconfig.json prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
@@ -58,5 +62,8 @@
     "ts-jest": "^29.2.0",
     "ts-node": "^10.9.0",
     "typescript": "^5.7.0"
+  },
+  "prisma": {
+    "seed": "ts-node -P tsconfig.json prisma/seed.ts"
   }
 }

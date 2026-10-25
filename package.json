@@ -21,7 +21,10 @@
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:migrate": "turbo db:migrate",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:migrate:dev": "turbo db:migrate:dev",
+    "db:migrate:deploy": "turbo db:migrate:deploy",
+    "db:seed": "turbo db:seed"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",

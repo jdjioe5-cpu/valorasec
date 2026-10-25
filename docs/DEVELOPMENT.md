@@ -20,10 +20,11 @@ pnpm install
 # Start infrastructure
 docker compose -f docker/docker-compose.yml up postgres redis -d
 
-# Push database schema
+# Apply database migrations and seed initial development data
 cd apps/api
 cp .env.example .env  # Adjust DATABASE_URL if needed
-pnpm db:push
+pnpm db:migrate:dev   # Or pnpm db:migrate:deploy for existing migrations
+pnpm db:seed          # Optional: populate test users, projects, and contracts
 
 # Start development
 cd ../..

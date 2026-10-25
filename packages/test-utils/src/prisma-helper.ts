@@ -13,6 +13,7 @@ export interface PrismaModelMock {
   delete: jest.Mock;
   deleteMany: jest.Mock;
   count: jest.Mock;
+  upsert: jest.Mock;
 }
 
 export interface PrismaMock {
@@ -40,13 +41,14 @@ function createModelMock(): PrismaModelMock {
     delete: jest.fn(),
     deleteMany: jest.fn(),
     count: jest.fn(),
+    upsert: jest.fn(),
   };
 }
 
 /**
  * Create a fully mocked PrismaService instance.
  * All model methods (findUnique, findFirst, findMany, create, update,
- * updateMany, delete, deleteMany, count) are jest mocks.
+ * updateMany, delete, deleteMany, count, upsert) are jest mocks.
  */
 export function createPrismaMock(): PrismaMock {
   return {

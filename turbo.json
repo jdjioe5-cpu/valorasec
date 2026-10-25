@@ -32,6 +32,15 @@
     },
     "db:migrate": {
       "cache": false
+    },
+    "db:migrate:dev": {
+      "cache": false
+    },
+    "db:migrate:deploy": {
+      "cache": false
+    },
+    "db:seed": {
+      "cache": false
     }
   }
 }
