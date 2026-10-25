@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:a11y": "vitest run --passWithNoTests src/__tests__/a11y/",
-    "clean": "rm -rf .next dist"
+    "clean": "rm -rf .next dist",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.0",
@@ -46,6 +48,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/jest-axe": "^3.5.9",
     "@types/node": "^20.17.0",
     "@types/react": "^18.3.0",
