@@ -326,26 +326,26 @@ export default function DashboardPage() {
       <Navbar />
       <main id="main-content" className="mx-auto max-w-7xl px-6 py-8" tabIndex={-1}>
         {/* Header */}
-        <div className="animate-fade-in mb-8 flex items-center justify-between">
+        <div className="animate-fade-in mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="font-heading text-3xl font-bold">
+              <h1 className="font-heading text-2xl font-bold sm:text-3xl">
                 Welcome back, {user?.name?.split(' ')[0] ?? 'User'}
               </h1>
               <Sparkles className="text-primary h-5 w-5 animate-pulse" />
             </div>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm">
               Monitor your Soroban smart contract security across all projects
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/projects">
-              <Button variant="outline">
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:items-center sm:gap-3">
+            <Link href="/projects" className="w-full sm:w-auto">
+              <Button variant="outline" className="min-h-[44px] w-full touch-manipulation">
                 <Layers className="mr-2 h-4 w-4" /> All Projects
               </Button>
             </Link>
-            <Link href="/projects/new">
-              <Button variant="cyber">
+            <Link href="/projects/new" className="w-full sm:w-auto">
+              <Button variant="cyber" className="min-h-[44px] w-full touch-manipulation">
                 <Plus className="mr-2 h-4 w-4" /> New Project
               </Button>
             </Link>
@@ -353,7 +353,11 @@ export default function DashboardPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32" role="status" aria-label="Loading dashboard">
+          <div
+            className="flex items-center justify-center py-32"
+            role="status"
+            aria-label="Loading dashboard"
+          >
             <Loader2 className="text-primary h-8 w-8 animate-spin" aria-hidden="true" />
             <span className="sr-only">Loading dashboard data...</span>
           </div>

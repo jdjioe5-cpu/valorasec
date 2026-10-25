@@ -34,15 +34,15 @@ export default function ProjectsPage() {
     <div className="bg-background min-h-screen">
       <Navbar />
       <main id="main-content" className="mx-auto max-w-7xl px-6 py-8" tabIndex={-1}>
-        <div className="animate-fade-in mb-8 flex items-center justify-between">
+        <div className="animate-fade-in mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="font-heading text-3xl font-bold">Projects</h1>
-            <p className="text-muted-foreground mt-1">
+            <h1 className="font-heading text-2xl font-bold sm:text-3xl">Projects</h1>
+            <p className="text-muted-foreground mt-1 text-sm">
               Manage your Soroban smart contract projects
             </p>
           </div>
-          <Link href="/projects/new">
-            <Button variant="cyber">
+          <Link href="/projects/new" className="w-full sm:w-auto">
+            <Button variant="cyber" className="min-h-[44px] w-full touch-manipulation">
               <Plus className="mr-2 h-4 w-4" /> New Project
             </Button>
           </Link>
@@ -51,7 +51,9 @@ export default function ProjectsPage() {
         <div className="mb-6">
           <div className="relative max-w-md">
             <Search className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-            <label htmlFor="search-projects" className="sr-only">Search projects</label>
+            <label htmlFor="search-projects" className="sr-only">
+              Search projects
+            </label>
             <input
               id="search-projects"
               type="text"
@@ -64,7 +66,11 @@ export default function ProjectsPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-32" role="status" aria-label="Loading projects">
+          <div
+            className="flex items-center justify-center py-32"
+            role="status"
+            aria-label="Loading projects"
+          >
             <Loader2 className="text-primary h-8 w-8 animate-spin" aria-hidden="true" />
             <span className="sr-only">Loading projects...</span>
           </div>
