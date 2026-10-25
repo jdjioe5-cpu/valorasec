@@ -46,6 +46,58 @@ Content-Type: application/json
 }
 ```
 
+## Role-Based Access Control (RBAC)
+
+ValoraSec provides role-based access control with three primary roles:
+
+- `user`: Standard platform user with access scoped to owned projects and reports.
+- `auditor`: Certified security auditor with read/review access to assigned projects and reports.
+- `admin`: Platform administrator with full access to user management, global report review, auditor assignments, and audit logs.
+
+Endpoints requiring elevated permissions are protected via `@Roles(...)` and `RolesGuard`. Unauthorized requests return `403 Forbidden`.
+
+## Admin Endpoints
+
+All admin endpoints require an `Authorization: Bearer <token>` where the caller holds the `admin` role (or `auditor` where noted).
+
+### List Users
+
+```http
+GET /api/admin/users?page=1&limit=20&role=auditor&search=john
+Authorization: Bearer <admin-token>
+```
+
+### List All Platform Reports
+
+```http
+GET /api/admin/reports?page=1&limit=20
+Authorization: Bearer <admin-or-auditor-token>
+```
+
+### Update User Role
+
+```http
+PATCH /api/admin/users/:userId/role
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "role": "auditor"
+}
+```
+
+### Assign Auditor to Project
+
+```http
+POST /api/admin/projects/:projectId/assign-auditor
+Authorization: Bearer <admin-token>
+Content-Type: application/json
+
+{
+  "auditorId": "auditor-user-id"
+}
+```
+
 ## Projects
 
 ### List Projects
