@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Shield, Loader2 } from 'lucide-react';
+import { Shield, Loader2, MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { api } from '@/lib/api';
@@ -15,10 +15,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendStatus, setResendStatus] = useState('');
+
+  const isUnverifiedError =
+    error.toLowerCase().includes('verify') || error.toLowerCase().includes('verification');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setResendStatus('');
     setLoading(true);
 
     try {
@@ -26,10 +32,27 @@ export default function LoginPage() {
       setAuth(res.data.user, res.data.tokens);
       api.setTokens(res.data.tokens);
       router.push('/dashboard');
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) {
+      setError('Please enter your email above to resend verification.');
+      return;
+    }
+    setResending(true);
+    setResendStatus('');
+    try {
+      const res = await api.resendVerification(email);
+      setResendStatus(res.data?.message || 'Verification email resent successfully.');
+    } catch (err: unknown) {
+      setResendStatus(err instanceof Error ? err.message : 'Failed to resend verification email.');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -49,8 +72,41 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-destructive/10 border-destructive/30 text-destructive rounded-md border p-3 text-sm" role="alert">
-              {error}
+            <div
+              className="bg-destructive/10 border-destructive/30 text-destructive space-y-2 rounded-md border p-3.5 text-sm"
+              role="alert"
+            >
+              <div>{error}</div>
+              {isUnverifiedError && (
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resending}
+                    className="text-primary hover:text-primary/80 flex items-center gap-1.5 text-xs font-medium underline transition-colors"
+                  >
+                    {resending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <MailCheck className="h-3.5 w-3.5" />
+                    )}
+                    Resend verification email
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {resendStatus && (
+            <div
+              className={`rounded-md p-3 text-sm ${
+                resendStatus.includes('Failed')
+                  ? 'bg-destructive/10 text-destructive border-destructive/30 border'
+                  : 'bg-primary/10 text-primary border-primary/30 border'
+              }`}
+              role="status"
+            >
+              {resendStatus}
             </div>
           )}
 

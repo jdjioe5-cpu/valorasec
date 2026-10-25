@@ -287,3 +287,19 @@ export interface BugBounty {
   createdAt: string;
   updatedAt: string;
 }
+
+// ─── Email Verification ──────────────────────────────────────────────────
+
+export interface VerifyEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
+export interface ResendVerificationResponse {
+  success: boolean;
+  message: string;
+}

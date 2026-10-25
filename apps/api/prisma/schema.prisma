@@ -17,7 +17,8 @@ model User {
   role         String    @default("user")
   avatarUrl    String?
   isVerified   Boolean   @default(false)
-  verifyToken  String?   @unique
+  verifyToken   String?   @unique
+  verifyExpires DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

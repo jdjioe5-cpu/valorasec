@@ -326,4 +326,83 @@ describe('Auth (integration)', () => {
         .expect(401);
     });
   });
+
+  // ─── GET /api/auth/verify ─────────────────────────────────────────────
+
+  describe('GET /api/auth/verify', () => {
+    it('should verify email with valid token', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        mockUser({
+          id: 'user-to-verify',
+          isVerified: false,
+          verifyToken: 'token-abc',
+          verifyExpires: new Date(Date.now() + 3600000),
+        }),
+      );
+      prisma.user.update.mockResolvedValue(mockUser({ isVerified: true }));
+
+      const res = await request(app.getHttpServer())
+        .get('/api/auth/verify?token=token-abc')
+        .expect(200);
+
+      expect(res.body.data.success).toBe(true);
+      expect(prisma.user.update).toHaveBeenCalledWith({
+        where: { id: 'user-to-verify' },
+        data: {
+          isVerified: true,
+          verifyToken: null,
+          verifyExpires: null,
+        },
+      });
+    });
+
+    it('should return 404 for invalid token', async () => {
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await request(app.getHttpServer())
+        .get('/api/auth/verify?token=nonexistent-token')
+        .expect(404);
+    });
+
+    it('should return 400 for expired token', async () => {
+      prisma.user.findFirst.mockResolvedValue(
+        mockUser({
+          isVerified: false,
+          verifyToken: 'expired-token',
+          verifyExpires: new Date(Date.now() - 5000),
+        }),
+      );
+
+      await request(app.getHttpServer()).get('/api/auth/verify?token=expired-token').expect(400);
+    });
+  });
+
+  // ─── POST /api/auth/resend-verification ────────────────────────────────
+
+  describe('POST /api/auth/resend-verification', () => {
+    it('should resend verification link for unverified user', async () => {
+      prisma.user.findUnique.mockResolvedValue(
+        mockUser({
+          email: 'test@valorasec.dev',
+          isVerified: false,
+        }),
+      );
+      prisma.user.update.mockResolvedValue({});
+
+      const res = await request(app.getHttpServer())
+        .post('/api/auth/resend-verification')
+        .send({ email: 'test@valorasec.dev' })
+        .expect(200);
+
+      expect(res.body.data.success).toBe(true);
+      expect(prisma.user.update).toHaveBeenCalled();
+    });
+
+    it('should return 400 for invalid email', async () => {
+      await request(app.getHttpServer())
+        .post('/api/auth/resend-verification')
+        .send({ email: 'not-an-email' })
+        .expect(400);
+    });
+  });
 });

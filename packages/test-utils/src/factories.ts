@@ -14,7 +14,7 @@ export const mockUserDefaults = {
   name: 'Test User',
   role: 'user' as const,
   avatarUrl: null as string | null,
-  isVerified: false,
+  isVerified: true,
   verifyToken: 'verify-token-123',
   createdAt: new Date('2025-01-01'),
   updatedAt: new Date('2025-01-01'),
