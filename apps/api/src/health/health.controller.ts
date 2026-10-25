@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
 
+import { SkipRateLimit } from '../rate-limit/rate-limit.decorator';
+
 @ApiTags('Health')
+@SkipRateLimit()
 @Controller('health')
 export class HealthController {
   constructor(

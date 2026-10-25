@@ -10,10 +10,12 @@ import { AuditRegistryModule } from './audit-registry/audit-registry.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
 import { CleanupModule } from './cleanup/cleanup.module';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    RateLimitModule,
     PrismaModule,
     AuthModule,
     UsersModule,
