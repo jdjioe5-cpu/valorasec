@@ -1,11 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { getAnalyzer } from '@valorasec/analyzer';
 import type { ScanResult } from '@valorasec/shared';
 
 @Injectable()
 export class ScansService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ScansService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly emailService?: EmailService,
+  ) {}
 
   async runScan(projectId: string, contractId: string): Promise<ScanResult> {
     // Verify contract exists in project
@@ -39,6 +45,25 @@ export class ScansService {
         duration: result.scan.duration ?? null,
       },
     });
+
+    if (this.emailService) {
+      this.prisma.project
+        .findUnique({ where: { id: projectId } })
+        .then((project) => {
+          if (project?.userId && this.emailService) {
+            this.emailService.sendScanCompletedEmail(project.userId, {
+              projectName: project.name,
+              contractName: contract.name,
+              score: result.scan.summary.score,
+              findingsCount: result.scan.summary.totalFindings,
+              scanUrl: `/projects/${projectId}`,
+            });
+          }
+        })
+        .catch((err) =>
+          this.logger.warn(`Failed to dispatch scan completed email: ${err.message}`),
+        );
+    }
 
     return result.scan;
   }

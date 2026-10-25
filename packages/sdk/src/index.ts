@@ -11,6 +11,7 @@ import {
   type Report,
   type ScanResult,
   type User,
+  type NotificationPreferences,
 } from '@valorasec/shared';
 
 export {
@@ -23,10 +24,7 @@ export {
   ValidationError,
   ValoraSecError,
 } from './errors';
-import {
-  errorForStatus,
-  type ValoraSecError as _ValoraSecErrorType,
-} from './errors';
+import { errorForStatus } from './errors';
 
 export interface SdkConfig {
   baseUrl: string;
@@ -91,7 +89,7 @@ export class ValoraSecClient {
     }
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => null) as ApiError | null;
+      const errorBody = (await res.json().catch(() => null)) as ApiError | null;
       throw errorForStatus(res.status, errorBody?.message ?? res.statusText, {
         code: errorBody?.error,
         body: errorBody ?? undefined,
@@ -255,5 +253,26 @@ export class ValoraSecClient {
     return this.request(`/api/reports/${reportId}/register`, {
       method: 'POST',
     });
+  }
+
+  // ─── Notification Preferences ──────────────────────────────────────
+
+  async getNotificationPreferences(): Promise<ApiSuccess<NotificationPreferences>> {
+    return this.request('/api/notifications/preferences');
+  }
+
+  async updateNotificationPreferences(
+    data: Partial<NotificationPreferences>,
+  ): Promise<ApiSuccess<NotificationPreferences>> {
+    return this.request('/api/notifications/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async unsubscribeEmail(token: string, type?: string): Promise<ApiSuccess<{ message: string }>> {
+    const query = new URLSearchParams({ token });
+    if (type) query.set('type', type);
+    return this.request(`/api/notifications/unsubscribe?${query.toString()}`);
   }
 }

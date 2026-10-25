@@ -127,4 +127,33 @@ describe('NotificationsService', () => {
       expect(result.count).toBe(0);
     });
   });
+
+  // ─── getPreferences ────────────────────────────────────────────────────
+
+  describe('getPreferences', () => {
+    it('should return default preferences when email service not provided', async () => {
+      const prefs = await service.getPreferences('user-1');
+      expect(prefs.scanCompleted).toBe(true);
+      expect(prefs.reportPublished).toBe(true);
+      expect(prefs.verificationUpdates).toBe(true);
+    });
+  });
+
+  // ─── updatePreferences ─────────────────────────────────────────────────
+
+  describe('updatePreferences', () => {
+    it('should return updated preferences when email service not provided', async () => {
+      const prefs = await service.updatePreferences('user-1', { scanCompleted: false });
+      expect(prefs.scanCompleted).toBe(false);
+    });
+  });
+
+  // ─── unsubscribe ───────────────────────────────────────────────────────
+
+  describe('unsubscribe', () => {
+    it('should return success response', async () => {
+      const res = await service.unsubscribe('any-token');
+      expect(res.success).toBe(true);
+    });
+  });
 });

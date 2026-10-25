@@ -10,6 +10,7 @@ import { AuditRegistryModule } from './audit-registry/audit-registry.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { HealthModule } from './health/health.module';
 import { CleanupModule } from './cleanup/cleanup.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CleanupModule } from './cleanup/cleanup.module';
     NotificationsModule,
     HealthModule,
     CleanupModule,
+    EmailModule,
   ],
 })
 export class AppModule {}

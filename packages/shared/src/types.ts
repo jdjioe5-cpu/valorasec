@@ -180,6 +180,19 @@ export interface Notification {
   createdAt: string;
 }
 
+export interface NotificationPreferences {
+  scanCompleted: boolean;
+  reportPublished: boolean;
+  verificationUpdates: boolean;
+  unsubscribeToken?: string;
+}
+
+export interface UpdateNotificationPreferencesDto {
+  scanCompleted?: boolean;
+  reportPublished?: boolean;
+  verificationUpdates?: boolean;
+}
+
 // ─── API ─────────────────────────────────────────────────────────────────
 
 export interface PaginatedResponse<T> {
