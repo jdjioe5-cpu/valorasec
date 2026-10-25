@@ -1,4 +1,12 @@
 import type { AnalyzerRule, Finding, ScanResult, ScanSummary, Severity } from '@valorasec/shared';
+import { computeWeightedScore } from './scoring';
+export {
+  computeWeightedScore,
+  calculateDensityFactor,
+  getExploitabilityMultiplier,
+  determineGrade,
+  SEVERITY_BASE_DEDUCTIONS,
+} from './scoring';
 
 // ─── Mock Rules ──────────────────────────────────────────────────────────
 
@@ -90,11 +98,13 @@ const MOCK_RULES: AnalyzerRule[] = [
 
 // ─── Mock Findings Generator ─────────────────────────────────────────────
 
+let findingSeq = 0;
+
 function generateMockFindings(rules: AnalyzerRule[], file: string): Finding[] {
   const shuffled = [...rules].sort(() => Math.random() - 0.5);
   const count = Math.floor(Math.random() * 5) + 2; // 2-6 findings
   return shuffled.slice(0, count).map((rule, index) => ({
-    id: `FND-${Date.now()}-${index}`,
+    id: `FND-${Date.now() * 1000 + (++findingSeq % 1000)}-${index}`,
     ruleId: rule.id,
     title: rule.name
       .split('-')
@@ -125,20 +135,13 @@ function computeSummary(findings: Finding[], linesAnalyzed: number): ScanSummary
     bySeverity[f.severity]++;
   }
 
-  // Compute score: deduct points based on severity counts
-  const deductions =
-    bySeverity.critical * 25 +
-    bySeverity.high * 15 +
-    bySeverity.medium * 8 +
-    bySeverity.low * 3 +
-    bySeverity.info * 1;
-
-  const score = Math.max(0, Math.min(100, 100 - deductions));
+  const { score, breakdown } = computeWeightedScore(findings, linesAnalyzed);
 
   return {
     totalFindings: findings.length,
     bySeverity,
     score,
+    breakdown,
     linesAnalyzed,
     rulesExecuted: MOCK_RULES.length,
   };

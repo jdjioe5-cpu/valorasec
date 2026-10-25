@@ -235,18 +235,13 @@ describe('Score calculation', () => {
     }
   });
 
-  it('should deduct 25 per critical finding', async () => {
-    // Verify the deduction formula through existing tests:
-    // For each finding of a severity, deductions apply
+  it('should calculate weighted score based on findings and density', async () => {
+    // Issue #39: Replaces simplistic linear deduction with weighted scoring + density
     const result = await new SecurityAnalyzer().analyze(createMockOptions());
-    const expectedDeductions =
-      result.scan.summary.bySeverity.critical * 25 +
-      result.scan.summary.bySeverity.high * 15 +
-      result.scan.summary.bySeverity.medium * 8 +
-      result.scan.summary.bySeverity.low * 3 +
-      result.scan.summary.bySeverity.info * 1;
-    const expectedScore = Math.max(0, Math.min(100, 100 - expectedDeductions));
-    expect(result.scan.summary.score).toBe(expectedScore);
+    expect(result.scan.summary.score).toBeGreaterThanOrEqual(0);
+    expect(result.scan.summary.score).toBeLessThanOrEqual(100);
+    expect(result.scan.summary.breakdown).toBeDefined();
+    expect(result.scan.summary.breakdown?.finalScore).toBe(result.scan.summary.score);
   });
 
   it('should clamp score to minimum of 0', async () => {

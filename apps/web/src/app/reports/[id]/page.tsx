@@ -11,6 +11,7 @@ import { useAuthGuard } from '@/lib/hooks/use-auth-guard';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import type { Report, Finding } from '@valorasec/shared';
+import { ScoreBreakdownCard } from '@/components/reports/score-breakdown-card';
 
 export default function ReportDetailPage() {
   const params = useParams();
@@ -110,6 +111,16 @@ export default function ReportDetailPage() {
             </div>
           </div>
         )}
+
+        {/* Score Breakdown Analysis */}
+        <div className="mb-8">
+          <ScoreBreakdownCard
+            score={report.summary?.score ?? 100}
+            breakdown={report.summary?.breakdown}
+            findings={findings}
+            linesAnalyzed={report.summary?.linesAnalyzed ?? 100}
+          />
+        </div>
 
         {/* Findings */}
         <div>

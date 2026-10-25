@@ -59,12 +59,23 @@ export interface ScanResult {
   duration?: number;
 }
 
+export interface ScoreBreakdown {
+  baseScore: number;
+  rawDeduction: number;
+  densityFactor: number;
+  deductionsBySeverity: Record<Severity, number>;
+  finalScore: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  rationale: string[];
+}
+
 export interface ScanSummary {
   totalFindings: number;
   bySeverity: Record<Severity, number>;
   score: number; // 0-100
   linesAnalyzed: number;
   rulesExecuted: number;
+  breakdown?: ScoreBreakdown;
 }
 
 // ─── Project ─────────────────────────────────────────────────────────────
